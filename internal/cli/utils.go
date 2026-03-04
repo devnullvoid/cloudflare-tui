@@ -8,7 +8,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
 	"github.com/cloudflare/cloudflare-go"
-	"github.com/devnullvoid/cloudflare-tui/internal/ui"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
@@ -92,15 +91,17 @@ func printOutput(data interface{}, format string, tableHeaders []string, tableRo
 			return nil
 		}
 		
+		theme := getTheme()
 		t := table.New().
 			Border(lipgloss.NormalBorder()).
+			BorderStyle(lipgloss.NewStyle().Foreground(theme.Primary)).
 			Headers(tableHeaders...).
 			Rows(tableRows...)
 
 		t.StyleFunc(func(row, col int) lipgloss.Style {
 			if row == table.HeaderRow {
 				return lipgloss.NewStyle().
-					Foreground(ui.DefaultTheme.Primary).
+					Foreground(theme.Primary).
 					Bold(true).
 					Padding(0, 1)
 			}

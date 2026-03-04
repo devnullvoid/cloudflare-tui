@@ -59,6 +59,7 @@ By default, running `cftui` without arguments launches the interactive interface
 
 **Global Flags**
 - `-f, --format string`: Output format. Options: `table` (default), `json`, `yaml`.
+- `-t, --theme string` : Color theme. Options: `ansi` (default), `mocha`, `nord`, `dracula`.
 
 **Commands**
 - `cftui help`: Show help text and available commands.
@@ -78,6 +79,9 @@ By default, running `cftui` without arguments launches the interactive interface
 
 # Create a new A record using domain name
 ./cftui records create example.com --type A --name api --content 1.1.1.1 --proxied
+
+# Run TUI with Nord theme
+./cftui --theme nord
 ```
 
 ## Shell Completion
@@ -93,6 +97,5 @@ To enable completion for your current session:
 To make it permanent, add the appropriate command to your shell's configuration file (e.g., `~/.zshrc`, `~/.bashrc`).
 
 ## License
-
 
 MIT

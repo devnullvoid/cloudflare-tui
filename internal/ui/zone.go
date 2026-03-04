@@ -32,9 +32,7 @@ func FetchZones(api *cloudflare.API) tea.Cmd {
 }
 
 // InitialModel returns the initial state of the application.
-func InitialModel(api *cloudflare.API) Model {
-	theme := DefaultTheme
-
+func InitialModel(api *cloudflare.API, theme Theme) Model {
 	// Customize list delegate with theme colors
 	delegate := list.NewDefaultDelegate()
 	delegate.Styles.SelectedTitle = delegate.Styles.SelectedTitle.

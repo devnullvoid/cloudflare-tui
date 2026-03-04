@@ -30,19 +30,45 @@ type Theme struct {
 	Inactive  lipgloss.TerminalColor
 }
 
-// DefaultTheme provides a standard Catppuccin Mocha inspired palette.
-var DefaultTheme = Theme{
-	Primary:   lipgloss.Color("#fab387"), // Peach
-	Secondary: lipgloss.Color("#89dceb"), // Sky
-	Error:     lipgloss.Color("#f38ba8"), // Red
-	Warning:   lipgloss.Color("#f9e2af"), // Yellow
-	Inactive:  lipgloss.Color("#585b70"), // Surface 2
+// AvailableThemes is a registry of all supported color schemes.
+var AvailableThemes = map[string]Theme{
+	"ansi": {
+		Primary:   lipgloss.Color("5"), // Magenta
+		Secondary: lipgloss.Color("6"), // Cyan
+		Error:     lipgloss.Color("1"), // Red
+		Warning:   lipgloss.Color("3"), // Yellow
+		Inactive:  lipgloss.Color("8"), // Gray
+	},
+	"mocha": {
+		Primary:   lipgloss.Color("#fab387"), // Peach
+		Secondary: lipgloss.Color("#89dceb"), // Sky
+		Error:     lipgloss.Color("#f38ba8"), // Red
+		Warning:   lipgloss.Color("#f9e2af"), // Yellow
+		Inactive:  lipgloss.Color("#585b70"), // Surface 2
+	},
+	"nord": {
+		Primary:   lipgloss.Color("#88C0D0"), // Frost (Blue)
+		Secondary: lipgloss.Color("#81A1C1"), // Frost (Lighter Blue)
+		Error:     lipgloss.Color("#BF616A"), // Aurora (Red)
+		Warning:   lipgloss.Color("#EBCB8B"), // Aurora (Yellow)
+		Inactive:  lipgloss.Color("#4C566A"), // Polar Night (Gray)
+	},
+	"dracula": {
+		Primary:   lipgloss.Color("#bd93f9"), // Purple
+		Secondary: lipgloss.Color("#8be9fd"), // Cyan
+		Error:     lipgloss.Color("#ff5555"), // Red
+		Warning:   lipgloss.Color("#f1fa8c"), // Yellow
+		Inactive:  lipgloss.Color("#6272a4"), // Comment
+	},
 }
+
+// DefaultTheme provides the fallback ANSI palette.
+var DefaultTheme = AvailableThemes["ansi"]
 
 // Styles are derived from the theme.
 var (
-	DocStyle     = lipgloss.NewStyle().Margin(1, 2)
-	NoStyle      = lipgloss.NewStyle()
+	DocStyle = lipgloss.NewStyle().Margin(1, 2)
+	NoStyle  = lipgloss.NewStyle()
 )
 
 // Model represents the application state.
