@@ -34,15 +34,16 @@ func init() {
 
 	// Global flags
 	rootCmd.PersistentFlags().StringP("format", "f", "table", "Output format (table, json, yaml)")
-	rootCmd.PersistentFlags().StringP("theme", "t", "ansi", "Color theme (ansi, mocha, nord, dracula)")
+	rootCmd.PersistentFlags().StringP("theme", "t", "ansi", "Color theme (ansi, mocha, nord, dracula, rose-pine, tokyo-night, gruvbox, everforest)")
 	viper.BindPFlag("format", rootCmd.PersistentFlags().Lookup("format"))
 	viper.BindPFlag("theme", rootCmd.PersistentFlags().Lookup("theme"))
 }
 
 func initConfig() {
 	viper.AutomaticEnv()
-	// Map the CLOUDFLARE_API_TOKEN environment variable
+	// Map environment variables
 	viper.BindEnv("api_token", "CLOUDFLARE_API_TOKEN")
+	viper.BindEnv("theme", "CFTUI_THEME")
 }
 
 // getTheme returns the selected theme based on CLI flags or viper config.

@@ -11,6 +11,7 @@
 - **Async Operations**: Non-blocking API calls ensure the UI stays responsive.
 - **Safe Operations**: Validation and confirmation prompts for all destructive or modifying actions.
 - **Keyboard-Centric**: Fully navigable via keyboard for maximum efficiency.
+- **Themable**: Multiple built-in color schemes (Catppuccin, Nord, Dracula, Gruvbox, etc.).
 
 ## Installation
 
@@ -59,7 +60,7 @@ By default, running `cftui` without arguments launches the interactive interface
 
 **Global Flags**
 - `-f, --format string`: Output format. Options: `table` (default), `json`, `yaml`.
-- `-t, --theme string` : Color theme. Options: `ansi` (default), `mocha`, `nord`, `dracula`.
+- `-t, --theme string` : Color theme. Options: `ansi` (default), `mocha`, `nord`, `dracula`, `rose-pine`, `tokyo-night`, `gruvbox`, `everforest`.
 
 **Commands**
 - `cftui help`: Show help text and available commands.
@@ -69,6 +70,10 @@ By default, running `cftui` without arguments launches the interactive interface
 - `cftui records update <zone-name-or-id> <record-id> --name <name> --content <content> [--type <type>] [--proxied]`: Update a record.
 - `cftui records delete <zone-name-or-id> <record-id>`: Delete a record.
 
+**Environment Variables**
+- `CLOUDFLARE_API_TOKEN`: Your Cloudflare API token (Required).
+- `CFTUI_THEME`: Set the default theme (e.g., `mocha`, `nord`).
+
 *Example:*
 ```bash
 # List zones in YAML format
@@ -77,11 +82,12 @@ By default, running `cftui` without arguments launches the interactive interface
 # List records using domain name
 ./cftui records list example.com
 
-# Create a new A record using domain name
-./cftui records create example.com --type A --name api --content 1.1.1.1 --proxied
+# Run TUI with Gruvbox theme
+./cftui --theme gruvbox
 
-# Run TUI with Nord theme
-./cftui --theme nord
+# Alternatively, use the environment variable
+export CFTUI_THEME=tokyo-night
+./cftui
 ```
 
 ## Shell Completion

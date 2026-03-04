@@ -2,6 +2,9 @@
 /cftui
 dist/
 
+# Demo
+demo.gif
+
 # Test coverage
 *.out
 coverage.html

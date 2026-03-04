@@ -42,3 +42,7 @@ build-all:
     GOOS=darwin GOARCH=amd64 go build -o dist/cftui-darwin-amd64 ./cmd/cftui
     GOOS=darwin GOARCH=arm64 go build -o dist/cftui-darwin-arm64 ./cmd/cftui
     GOOS=windows GOARCH=amd64 go build -o dist/cftui-windows-amd64.exe ./cmd/cftui
+
+# Record demo with VHS
+demo:
+    vhs demo.tape

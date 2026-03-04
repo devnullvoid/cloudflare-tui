@@ -60,6 +60,34 @@ var AvailableThemes = map[string]Theme{
 		Warning:   lipgloss.Color("#f1fa8c"), // Yellow
 		Inactive:  lipgloss.Color("#6272a4"), // Comment
 	},
+	"rose-pine": {
+		Primary:   lipgloss.Color("#ebbcba"), // Rose
+		Secondary: lipgloss.Color("#31748f"), // Pine
+		Error:     lipgloss.Color("#eb6f92"), // Love
+		Warning:   lipgloss.Color("#f6c177"), // Gold
+		Inactive:  lipgloss.Color("#908caa"), // Subtle
+	},
+	"tokyo-night": {
+		Primary:   lipgloss.Color("#7aa2f7"), // Blue
+		Secondary: lipgloss.Color("#bb9af7"), // Purple
+		Error:     lipgloss.Color("#f7768e"), // Red
+		Warning:   lipgloss.Color("#e0af68"), // Orange
+		Inactive:  lipgloss.Color("#565f89"), // Gray
+	},
+	"gruvbox": {
+		Primary:   lipgloss.Color("#fabd2f"), // Yellow
+		Secondary: lipgloss.Color("#83a598"), // Blue
+		Error:     lipgloss.Color("#fb4934"), // Red
+		Warning:   lipgloss.Color("#fe8019"), // Orange
+		Inactive:  lipgloss.Color("#928374"), // Gray
+	},
+	"everforest": {
+		Primary:   lipgloss.Color("#a7c080"), // Green
+		Secondary: lipgloss.Color("#7fbbb3"), // Blue
+		Error:     lipgloss.Color("#e67e80"), // Red
+		Warning:   lipgloss.Color("#dbbc7f"), // Yellow
+		Inactive:  lipgloss.Color("#859289"), // Gray
+	},
 }
 
 // DefaultTheme provides the fallback ANSI palette.
