@@ -1,7 +1,12 @@
-# Copy to .envrc and fill in your token
-# Requires direnv: https://direnv.net/
+# Cloudflare API Token (Required)
+export CLOUDFLARE_API_TOKEN=""
 
-export CLOUDFLARE_API_TOKEN=your_token_here
+# Color theme (Optional)
+# Options: ansi, mocha, nord, dracula, rose-pine, tokyo-night, gruvbox, everforest
+export CFTUI_THEME="ansi"
 
-# Optional: Set default theme
-# export CFTUI_THEME=mocha
+# Log file path (Optional)
+# export CFTUI_LOG="$HOME/.local/state/cftui/cftui.log"
+
+# Debug mode (Optional)
+export CFTUI_DEBUG="false"

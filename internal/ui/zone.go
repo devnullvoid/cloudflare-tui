@@ -25,12 +25,15 @@ func (i ZoneItem) Description() string { return i.ID }
 func (i ZoneItem) FilterValue() string { return i.Name }
 
 // FetchZones returns a tea.Cmd that fetches all Cloudflare zones.
-func FetchZones(api *cloudflare.API) tea.Cmd {
+func FetchZones(api *cloudflare.API, logger *log.Logger) tea.Cmd {
 	return func() tea.Msg {
+		logger.Debug("Initiating ListZones API call")
 		zones, err := api.ListZones(context.Background())
 		if err != nil {
+			logger.Error("ListZones API call failed", "error", err)
 			return ErrorMsg(err)
 		}
+		logger.Debug("ListZones API call successful", "count", len(zones))
 		return FetchedZonesMsg(zones)
 	}
 }

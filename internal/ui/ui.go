@@ -13,7 +13,7 @@ const helpHeight = 2
 
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(
-		FetchZones(m.CfClient),
+		FetchZones(m.CfClient, m.Logger),
 		m.Spinner.Tick,
 	)
 }
@@ -46,9 +46,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "y", "Y", "enter":
 				return m, tea.Quit
 			case "n", "N", "q", "esc":
-				m.State = ZoneListState // Fallback, previous state would be better but let's keep it simple
-				// To be better, we could track 'previousState', but for now ZoneList is safe.
-				// Let's actually check if we have a selected zone to decide.
 				if m.SelectedID != "" {
 					m.State = RecordListState
 				} else {
@@ -97,12 +94,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case RecordSavedMsg:
 		m.Logger.Info("Record saved successfully")
 		m.State = LoadingRecordsState
-		return m, tea.Batch(FetchRecords(m.CfClient, m.SelectedID), m.Spinner.Tick)
+		return m, tea.Batch(FetchRecords(m.CfClient, m.SelectedID, m.Logger), m.Spinner.Tick)
 
 	case RecordDeletedMsg:
 		m.Logger.Info("Record deleted successfully", "id", m.PendingDeleteID)
 		m.State = LoadingRecordsState
-		return m, tea.Batch(FetchRecords(m.CfClient, m.SelectedID), m.Spinner.Tick)
+		return m, tea.Batch(FetchRecords(m.CfClient, m.SelectedID, m.Logger), m.Spinner.Tick)
 
 	case ErrorMsg:
 		m.Logger.Error("API Error", "error", msg.Error())
@@ -129,7 +126,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.State = LoadingRecordsState
 				m.RecordList.Title = "DNS Records: " + i.Name
 				m.Logger.Info("Selecting zone", "name", i.Name, "id", i.ID)
-				return m, tea.Batch(FetchRecords(m.CfClient, i.ID), m.Spinner.Tick)
+				return m, tea.Batch(FetchRecords(m.CfClient, i.ID, m.Logger), m.Spinner.Tick)
 			}
 		}
 
@@ -221,7 +218,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.String() {
 			case "y", "Y", "enter":
 				m.Logger.Info("Saving record", "id", m.Form.ID)
-				return m, SaveRecord(m.CfClient, m.SelectedID, m.Form)
+				return m, SaveRecord(m.CfClient, m.SelectedID, m.Form, m.Logger)
 			case "n", "N", "esc":
 				m.State = EditingRecordState
 				return m, nil
@@ -233,7 +230,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.String() {
 			case "y", "Y", "enter":
 				m.Logger.Info("Deleting record", "id", m.PendingDeleteID)
-				return m, DeleteRecord(m.CfClient, m.SelectedID, m.PendingDeleteID)
+				return m, DeleteRecord(m.CfClient, m.SelectedID, m.PendingDeleteID, m.Logger)
 			case "n", "N", "esc":
 				m.State = RecordListState
 				return m, nil

@@ -32,12 +32,14 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	// Determine default log path
+	// Determine default log path according to XDG Spec (XDG_STATE_HOME)
 	defaultLogPath := ""
-	stateDir, err := os.UserConfigDir()
-	if err == nil {
-		defaultLogPath = filepath.Join(stateDir, "cftui", "cftui.log")
+	stateDir := os.Getenv("XDG_STATE_HOME")
+	if stateDir == "" {
+		home, _ := os.UserHomeDir()
+		stateDir = filepath.Join(home, ".local", "state")
 	}
+	defaultLogPath = filepath.Join(stateDir, "cftui", "cftui.log")
 
 	// Global flags
 	rootCmd.PersistentFlags().StringP("format", "f", "table", "Output format (table, json, yaml)")

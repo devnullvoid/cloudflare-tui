@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/log"
 	"github.com/cloudflare/cloudflare-go"
 )
 
@@ -59,25 +60,29 @@ func NewRecordForm(r *cloudflare.DNSRecord, theme Theme) RecordForm {
 }
 
 // FetchRecords returns a tea.Cmd that fetches DNS records for a specific zone.
-func FetchRecords(api *cloudflare.API, zoneID string) tea.Cmd {
+func FetchRecords(api *cloudflare.API, zoneID string, logger *log.Logger) tea.Cmd {
 	return func() tea.Msg {
+		logger.Debug("Initiating ListDNSRecords API call", "zoneID", zoneID)
 		rc := cloudflare.ZoneIdentifier(zoneID)
 		records, _, err := api.ListDNSRecords(context.Background(), rc, cloudflare.ListDNSRecordsParams{})
 		if err != nil {
+			logger.Error("ListDNSRecords API call failed", "error", err, "zoneID", zoneID)
 			return ErrorMsg(err)
 		}
+		logger.Debug("ListDNSRecords API call successful", "count", len(records), "zoneID", zoneID)
 		return FetchedRecordsMsg(records)
 	}
 }
 
 // SaveRecord returns a tea.Cmd that saves (creates or updates) a DNS record.
-func SaveRecord(api *cloudflare.API, zoneID string, f RecordForm) tea.Cmd {
+func SaveRecord(api *cloudflare.API, zoneID string, f RecordForm, logger *log.Logger) tea.Cmd {
 	return func() tea.Msg {
 		rc := cloudflare.ZoneIdentifier(zoneID)
 		proxied := f.Proxied
 
 		var err error
 		if f.ID == "" {
+			logger.Debug("Initiating CreateDNSRecord API call", "zoneID", zoneID, "name", f.Inputs[1].Value())
 			_, err = api.CreateDNSRecord(context.Background(), rc, cloudflare.CreateDNSRecordParams{
 				Type:    f.Inputs[0].Value(),
 				Name:    f.Inputs[1].Value(),
@@ -85,6 +90,7 @@ func SaveRecord(api *cloudflare.API, zoneID string, f RecordForm) tea.Cmd {
 				Proxied: &proxied,
 			})
 		} else {
+			logger.Debug("Initiating UpdateDNSRecord API call", "zoneID", zoneID, "recordID", f.ID)
 			_, err = api.UpdateDNSRecord(context.Background(), rc, cloudflare.UpdateDNSRecordParams{
 				ID:      f.ID,
 				Type:    f.Inputs[0].Value(),
@@ -95,20 +101,25 @@ func SaveRecord(api *cloudflare.API, zoneID string, f RecordForm) tea.Cmd {
 		}
 
 		if err != nil {
+			logger.Error("SaveRecord API call failed", "error", err, "zoneID", zoneID, "recordID", f.ID)
 			return ErrorMsg(err)
 		}
+		logger.Debug("SaveRecord API call successful", "zoneID", zoneID, "recordID", f.ID)
 		return RecordSavedMsg{}
 	}
 }
 
 // DeleteRecord returns a tea.Cmd that deletes a DNS record.
-func DeleteRecord(api *cloudflare.API, zoneID string, recordID string) tea.Cmd {
+func DeleteRecord(api *cloudflare.API, zoneID string, recordID string, logger *log.Logger) tea.Cmd {
 	return func() tea.Msg {
+		logger.Debug("Initiating DeleteDNSRecord API call", "zoneID", zoneID, "recordID", recordID)
 		rc := cloudflare.ZoneIdentifier(zoneID)
 		err := api.DeleteDNSRecord(context.Background(), rc, recordID)
 		if err != nil {
+			logger.Error("DeleteDNSRecord API call failed", "error", err, "zoneID", zoneID, "recordID", recordID)
 			return ErrorMsg(err)
 		}
+		logger.Debug("DeleteDNSRecord API call successful", "zoneID", zoneID, "recordID", recordID)
 		return RecordDeletedMsg{}
 	}
 }
