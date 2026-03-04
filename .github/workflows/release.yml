@@ -1,0 +1,40 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      
+      - name: Run tests
+        run: go test ./...
+      
+      - name: Build binaries
+        run: |
+          mkdir -p dist
+          GOOS=linux GOARCH=amd64 go build -o dist/cftui-linux-amd64 ./cmd/cftui
+          GOOS=linux GOARCH=arm64 go build -o dist/cftui-linux-arm64 ./cmd/cftui
+          GOOS=darwin GOARCH=amd64 go build -o dist/cftui-darwin-amd64 ./cmd/cftui
+          GOOS=darwin GOARCH=arm64 go build -o dist/cftui-darwin-arm64 ./cmd/cftui
+          GOOS=windows GOARCH=amd64 go build -o dist/cftui-windows-amd64.exe ./cmd/cftui
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/*
+          generate_release_notes: true
