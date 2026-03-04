@@ -1,5 +1,6 @@
 # Binaries
 /cftui
+bin/
 dist/
 
 # Assets

@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -75,19 +74,35 @@ func InitialModel(api *cloudflare.API, theme Theme, logPath string, debug bool) 
 	var f *os.File
 	var logger *log.Logger
 	if logPath != "" {
-		// Ensure directory exists
 		_ = os.MkdirAll(filepath.Dir(logPath), 0755)
 		f, _ = os.OpenFile(logPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+		
 		logger = log.New(f)
 		logger.SetReportTimestamp(true)
-		logger.SetTimeFormat(time.Kitchen)
+		// Include brackets directly in the time format
+		logger.SetTimeFormat("[2006-01-02 15:04:05]")
+		
+		// Custom Styles for [LEVEL] format
+		styles := log.DefaultStyles()
+		
+		// Wrap levels in brackets and remove default padding/colors for file logging
+		levelStyle := func(level string) lipgloss.Style {
+			return lipgloss.NewStyle().SetString("[" + level + "]")
+		}
+		
+		styles.Levels[log.DebugLevel] = levelStyle("DEBUG")
+		styles.Levels[log.InfoLevel] = levelStyle("INFO")
+		styles.Levels[log.WarnLevel] = levelStyle("WARN")
+		styles.Levels[log.ErrorLevel] = levelStyle("ERROR")
+		
+		logger.SetStyles(styles)
+
 		if debug {
 			logger.SetLevel(log.DebugLevel)
 		} else {
 			logger.SetLevel(log.InfoLevel)
 		}
 	} else {
-		// Fallback to no-op logger if path is empty (though cli ensures it shouldn't be)
 		logger = log.New(os.Stderr)
 		logger.SetLevel(log.FatalLevel)
 	}

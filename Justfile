@@ -18,7 +18,8 @@ lint:
 
 # Build binary
 build:
-    go build -o cftui ./cmd/cftui
+    mkdir -p bin
+    go build -o bin/cftui ./cmd/cftui
 
 # Install binary to $GOPATH/bin
 install:
@@ -26,7 +27,7 @@ install:
 
 # Clean build artifacts
 clean:
-    rm -f cftui
+    rm -rf bin dist
 
 # Format code
 fmt:
