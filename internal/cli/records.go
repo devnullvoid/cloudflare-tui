@@ -189,5 +189,11 @@ func init() {
 	recordsCmd.AddCommand(recordsUpdateCmd)
 	recordsCmd.AddCommand(recordsDeleteCmd)
 
+	// Register dynamic zone name completions
+	recordsListCmd.ValidArgsFunction = CompleteZoneNames
+	recordsCreateCmd.ValidArgsFunction = CompleteZoneNames
+	recordsUpdateCmd.ValidArgsFunction = CompleteZoneNames
+	recordsDeleteCmd.ValidArgsFunction = CompleteZoneNames
+
 	rootCmd.AddCommand(recordsCmd)
 }

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss/table"
 	"github.com/cloudflare/cloudflare-go"
 	"github.com/devnullvoid/cloudflare-tui/internal/ui"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 )
@@ -30,21 +32,43 @@ func getCloudflareClient() (*cloudflare.API, error) {
 // resolveZoneID takes a string that could be either a Zone ID or a Zone Name
 // and returns the actual Zone ID.
 func resolveZoneID(api *cloudflare.API, identifier string) (string, error) {
-	// If it's already a 32-character hex string, it's likely already an ID.
-	// But to be safe and user-friendly, we'll try to find a zone with this name first.
-	zones, err := api.ListZones(context.Background(), cloudflare.ListZonesParams{Name: identifier})
+	// Search for zone by name
+	zones, err := api.ListZones(context.Background(), identifier)
 	if err == nil && len(zones) > 0 {
 		return zones[0].ID, nil
 	}
 
-	// If name lookup failed or returned nothing, let's check if the identifier itself works as an ID
-	// by fetching that specific zone.
-	zone, err := api.GetZone(context.Background(), identifier)
+	// Try as ID
+	zone, err := api.ZoneDetails(context.Background(), identifier)
 	if err == nil {
 		return zone.ID, nil
 	}
 
 	return "", fmt.Errorf("could not find zone with name or ID: %s", identifier)
+}
+
+// CompleteZoneNames returns a list of zone names for shell completion.
+func CompleteZoneNames(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	api, err := getCloudflareClient()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	zones, err := api.ListZones(context.Background())
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	var names []string
+	for _, z := range zones {
+		names = append(names, z.Name)
+	}
+
+	return names, cobra.ShellCompDirectiveNoFileComp
 }
 
 // printOutput formats and prints structured data based on the requested format.
@@ -70,11 +94,9 @@ func printOutput(data interface{}, format string, tableHeaders []string, tableRo
 		
 		t := table.New().
 			Border(lipgloss.NormalBorder()).
-			BorderStyle(lipgloss.NewStyle().Foreground(ui.DefaultTheme.Primary)).
 			Headers(tableHeaders...).
 			Rows(tableRows...)
 
-		// Apply styles to headers
 		t.StyleFunc(func(row, col int) lipgloss.Style {
 			if row == 0 { // Header
 				return lipgloss.NewStyle().
@@ -87,7 +109,6 @@ func printOutput(data interface{}, format string, tableHeaders []string, tableRo
 
 		fmt.Println(t.Render())
 	default:
-		// Default to table if format is unsupported
 		return printOutput(data, "table", tableHeaders, tableRows)
 	}
 	return nil
