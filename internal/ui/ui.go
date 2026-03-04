@@ -9,6 +9,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+const helpHeight = 2
+
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(
 		FetchZones(m.CfClient),
@@ -33,27 +35,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		
-		// If we are filtering, we let the list handle all keys except Esc
-		if m.State == ZoneListState && m.ZoneList.FilterState() == list.Filtering {
-			if msg.String() == "esc" {
-				// Escape filtering
-			} else {
-				m.ZoneList, cmd = m.ZoneList.Update(msg)
-				return m, cmd
-			}
-		}
-		if m.State == RecordListState && m.RecordList.FilterState() == list.Filtering {
-			if msg.String() == "esc" {
-				// Escape filtering
-			} else {
-				m.RecordList, cmd = m.RecordList.Update(msg)
-				return m, cmd
-			}
+		// Handle Ctrl+C globally
+		if msg.String() == "ctrl+c" {
+			return m, tea.Quit
 		}
 
-		switch msg.String() {
-		case "ctrl+c":
-			return m, tea.Quit
+		// If we are filtering, we let the list handle EVERYTHING.
+		// The list component handles 'esc' to exit filtering itself.
+		if m.State == ZoneListState && m.ZoneList.FilterState() == list.Filtering {
+			m.ZoneList, cmd = m.ZoneList.Update(msg)
+			return m, cmd
+		}
+		if m.State == RecordListState && m.RecordList.FilterState() == list.Filtering {
+			m.RecordList, cmd = m.RecordList.Update(msg)
+			return m, cmd
 		}
 
 	case FetchedZonesMsg:
@@ -93,8 +88,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.WindowSizeMsg:
 		h, v := DocStyle.GetFrameSize()
-		m.ZoneList.SetSize(msg.Width-h, msg.Height-v)
-		m.RecordList.SetSize(msg.Width-h, msg.Height-v)
+		// Reduce height by helpHeight to avoid layout issues/clipping
+		m.ZoneList.SetSize(msg.Width-h, msg.Height-v-helpHeight)
+		m.RecordList.SetSize(msg.Width-h, msg.Height-v-helpHeight)
 	}
 
 	// Update the spinner
