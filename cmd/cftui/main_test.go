@@ -3,42 +3,37 @@ package main
 import (
 	"testing"
 
-	"github.com/charmbracelet/bubbles/list"
 	"github.com/cloudflare/cloudflare-go"
+	"github.com/devnullvoid/cloudflare-tui/internal/ui"
 )
 
 func TestUpdate(t *testing.T) {
-	// Initialize a mock model
-	l := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
-	m := model{
-		state:    loadingZonesState,
-		zoneList: l,
-	}
+	m := ui.InitialModel(nil)
 
-	// Test case: fetchedZonesMsg should transition to zoneListState
+	// Test case: FetchedZonesMsg should transition to ZoneListState
 	zones := []cloudflare.Zone{
 		{ID: "123", Name: "example.com"},
 	}
-	newModel, _ := m.Update(fetchedZonesMsg(zones))
+	newModel, _ := m.Update(ui.FetchedZonesMsg(zones))
 	
-	updatedModel := newModel.(model)
-	if updatedModel.state != zoneListState {
-		t.Errorf("Expected state to be zoneListState, got %v", updatedModel.state)
+	updatedModel := newModel.(ui.Model)
+	if updatedModel.State != ui.ZoneListState {
+		t.Errorf("Expected state to be ZoneListState, got %v", updatedModel.State)
 	}
 
-	if len(updatedModel.zoneList.Items()) != 1 {
-		t.Errorf("Expected 1 zone item, got %d", len(updatedModel.zoneList.Items()))
+	if len(updatedModel.ZoneList.Items()) != 1 {
+		t.Errorf("Expected 1 zone item, got %d", len(updatedModel.ZoneList.Items()))
 	}
 }
 
 func TestNewRecordForm(t *testing.T) {
 	// Test creating a new form from scratch
-	form := newRecordForm(nil)
-	if form.id != "" {
-		t.Errorf("Expected empty ID for new form, got %s", form.id)
+	form := ui.NewRecordForm(nil)
+	if form.ID != "" {
+		t.Errorf("Expected empty ID for new form, got %s", form.ID)
 	}
-	if len(form.inputs) != 3 {
-		t.Errorf("Expected 3 inputs, got %d", len(form.inputs))
+	if len(form.Inputs) != 3 {
+		t.Errorf("Expected 3 inputs, got %d", len(form.Inputs))
 	}
 
 	// Test creating a form from an existing record
@@ -50,14 +45,14 @@ func TestNewRecordForm(t *testing.T) {
 		Content: "1.2.3.4",
 		Proxied: &proxied,
 	}
-	form = newRecordForm(record)
-	if form.id != "rec123" {
-		t.Errorf("Expected ID rec123, got %s", form.id)
+	form = ui.NewRecordForm(record)
+	if form.ID != "rec123" {
+		t.Errorf("Expected ID rec123, got %s", form.ID)
 	}
-	if form.inputs[0].Value() != "A" {
-		t.Errorf("Expected Type A, got %s", form.inputs[0].Value())
+	if form.Inputs[0].Value() != "A" {
+		t.Errorf("Expected Type A, got %s", form.Inputs[0].Value())
 	}
-	if !form.proxied {
+	if !form.Proxied {
 		t.Error("Expected proxied to be true")
 	}
 }
