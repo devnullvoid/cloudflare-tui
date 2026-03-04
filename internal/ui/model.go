@@ -16,7 +16,8 @@ const (
 	LoadingRecordsState
 	RecordListState
 	EditingRecordState
-	DeletingRecordState
+	ConfirmingDeleteState
+	ConfirmingSaveState
 )
 
 // Styles for the UI.
@@ -26,6 +27,7 @@ var (
 	FocusedStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 	NoStyle       = lipgloss.NewStyle()
 	HelpStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("241")).MarginTop(1)
+	ConfirmStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Bold(true)
 )
 
 // Model represents the application state.
@@ -37,6 +39,10 @@ type Model struct {
 	Form       RecordForm
 	Err        error
 	SelectedID string
+	
+	// Pending deletion info
+	PendingDeleteID   string
+	PendingDeleteName string
 }
 
 // RecordForm manages input fields for adding/editing a record.

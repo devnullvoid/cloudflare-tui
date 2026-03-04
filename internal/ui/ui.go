@@ -18,6 +18,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if m.Err != nil {
+			m.Err = nil
+			return m, nil
+		}
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
@@ -86,7 +90,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			case "d":
 				if i, ok := m.RecordList.SelectedItem().(RecordItem); ok {
-					return m, DeleteRecord(m.CfClient, m.SelectedID, i.DNS.ID)
+					m.PendingDeleteID = i.DNS.ID
+					m.PendingDeleteName = i.DNS.Name
+					m.State = ConfirmingDeleteState
+					return m, nil
 				}
 			}
 		}
@@ -130,7 +137,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			case "enter":
 				if m.Form.Focused == 4 {
-					return m, SaveRecord(m.CfClient, m.SelectedID, m.Form)
+					// Basic Validation
+					if m.Form.Inputs[0].Value() == "" || m.Form.Inputs[1].Value() == "" || m.Form.Inputs[2].Value() == "" {
+						m.Err = fmt.Errorf("all fields (Type, Name, Content) are required")
+						return m, nil
+					}
+					m.State = ConfirmingSaveState
+					return m, nil
 				}
 			}
 		}
@@ -140,6 +153,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Form.Inputs[i], cmds[i] = m.Form.Inputs[i].Update(msg)
 		}
 		return m, tea.Batch(cmds...)
+
+	case ConfirmingSaveState:
+		if msg, ok := msg.(tea.KeyMsg); ok {
+			switch msg.String() {
+			case "y", "Y", "enter":
+				return m, SaveRecord(m.CfClient, m.SelectedID, m.Form)
+			case "n", "N", "esc":
+				m.State = EditingRecordState
+				return m, nil
+			}
+		}
+
+	case ConfirmingDeleteState:
+		if msg, ok := msg.(tea.KeyMsg); ok {
+			switch msg.String() {
+			case "y", "Y", "enter":
+				return m, DeleteRecord(m.CfClient, m.SelectedID, m.PendingDeleteID)
+			case "n", "N", "esc":
+				m.State = RecordListState
+				return m, nil
+			}
+		}
 	}
 
 	return m, nil
@@ -147,7 +182,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m Model) View() string {
 	if m.Err != nil {
-		return DocStyle.Render(fmt.Sprintf("%s\n\nPress 'q' to exit.", ErrStyle.Render("Error: "+m.Err.Error())))
+		return DocStyle.Render(fmt.Sprintf("%s\n\nPress any key to continue.", ErrStyle.Render("Error: "+m.Err.Error())))
 	}
 
 	switch m.State {
@@ -163,6 +198,7 @@ func (m Model) View() string {
 		return DocStyle.Render(view + "\n" + help)
 	case EditingRecordState:
 		var b strings.Builder
+		b.WriteString(ConfirmStyle.Render("Editing DNS Record") + "\n\n")
 
 		for i := range m.Form.Inputs {
 			b.WriteString(m.Form.Inputs[i].View())
@@ -192,6 +228,13 @@ func (m Model) View() string {
 		b.WriteString("\n\n(esc) cancel")
 
 		return DocStyle.Render(b.String())
+
+	case ConfirmingSaveState:
+		return DocStyle.Render(ConfirmStyle.Render("Are you sure you want to save these changes? (y/n)"))
+
+	case ConfirmingDeleteState:
+		return DocStyle.Render(ConfirmStyle.Render(fmt.Sprintf("Are you sure you want to delete '%s'? (y/n)", m.PendingDeleteName)))
+
 	default:
 		return "Unknown state"
 	}
