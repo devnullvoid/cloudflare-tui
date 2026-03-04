@@ -1,23 +1,23 @@
-package main
+package ui
 
 import (
 	"testing"
 
+	"github.com/charmbracelet/bubbles/list"
 	"github.com/cloudflare/cloudflare-go"
-	"github.com/devnullvoid/cloudflare-tui/internal/ui"
 )
 
 func TestUpdate(t *testing.T) {
-	m := ui.InitialModel(nil, &ui.DefaultTheme, nil, nil)
+	m := InitialModel(nil, &DefaultTheme, nil, nil)
 
 	// Test case: FetchedZonesMsg should transition to ZoneListState
 	zones := []cloudflare.Zone{
 		{ID: "123", Name: "example.com"},
 	}
-	newModel, _ := m.Update(ui.FetchedZonesMsg(zones))
+	newModel, _ := m.Update(FetchedZonesMsg(zones))
 
-	updatedModel := newModel.(*ui.Model)
-	if updatedModel.State != ui.ZoneListState {
+	updatedModel := newModel.(*Model)
+	if updatedModel.State != ZoneListState {
 		t.Errorf("Expected state to be ZoneListState, got %v", updatedModel.State)
 	}
 
@@ -26,9 +26,34 @@ func TestUpdate(t *testing.T) {
 	}
 }
 
+func TestRecordListTransition(t *testing.T) {
+	m := InitialModel(nil, &DefaultTheme, nil, nil)
+	m.State = ZoneListState
+
+	// Mock selecting a zone
+	z := &ZoneItem{ID: "zone123", Name: "test.com"}
+	m.ZoneList.SetItems([]list.Item{z})
+
+	// We can't easily trigger the 'enter' key in a unit test without more boilerplate,
+	// but we can test the FetchedRecordsMsg transition.
+	records := []cloudflare.DNSRecord{
+		{ID: "rec1", Name: "www", Type: "A", Content: "1.1.1.1"},
+	}
+
+	newModel, _ := m.Update(FetchedRecordsMsg(records))
+	updatedModel := newModel.(*Model)
+
+	if updatedModel.State != RecordListState {
+		t.Errorf("Expected RecordListState, got %v", updatedModel.State)
+	}
+	if len(updatedModel.RecordList.Items()) != 1 {
+		t.Errorf("Expected 1 record item, got %d", len(updatedModel.RecordList.Items()))
+	}
+}
+
 func TestNewRecordForm(t *testing.T) {
 	// Test creating a new form from scratch
-	form := ui.NewRecordForm(nil, &ui.DefaultTheme)
+	form := NewRecordForm(nil, &DefaultTheme)
 	if form.ID != "" {
 		t.Errorf("Expected empty ID for new form, got %s", form.ID)
 	}
@@ -45,7 +70,7 @@ func TestNewRecordForm(t *testing.T) {
 		Content: "1.2.3.4",
 		Proxied: &proxied,
 	}
-	form = ui.NewRecordForm(record, &ui.DefaultTheme)
+	form = NewRecordForm(record, &DefaultTheme)
 	if form.ID != "rec123" {
 		t.Errorf("Expected ID rec123, got %s", form.ID)
 	}

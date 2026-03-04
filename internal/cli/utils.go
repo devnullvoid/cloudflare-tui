@@ -125,10 +125,18 @@ func resolveZoneID(api *cloudflare.API, identifier string) (string, error) {
 
 // CompleteZoneNames returns a list of zone names for shell completion.
 func CompleteZoneNames(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	// We don't log during completion to keep it fast and clean
-	api, err := getCloudflareClient(nil)
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveNoFileComp
+	var api *cloudflare.API
+	var err error
+
+	// If app is already initialized (unlikely during completion, but possible)
+	if app.API != nil {
+		api = app.API
+	} else {
+		// Manual initialization for completion (no logging)
+		api, err = getCloudflareClient(nil)
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
 	}
 
 	if len(args) > 0 {

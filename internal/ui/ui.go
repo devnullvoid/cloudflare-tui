@@ -24,6 +24,17 @@ func (m *Model) Close() {
 	}
 }
 
+func (m *Model) updateList(msg tea.Msg) tea.Cmd {
+	var cmd tea.Cmd
+	switch m.State {
+	case ZoneListState:
+		m.ZoneList, cmd = m.ZoneList.Update(msg)
+	case RecordListState:
+		m.RecordList, cmd = m.RecordList.Update(msg)
+	}
+	return cmd
+}
+
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
@@ -56,13 +67,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// If we are filtering, we let the list handle EVERYTHING.
-		if m.State == ZoneListState && m.ZoneList.FilterState() == list.Filtering {
-			m.ZoneList, cmd = m.ZoneList.Update(msg)
-			return m, cmd
-		}
-		if m.State == RecordListState && m.RecordList.FilterState() == list.Filtering {
-			m.RecordList, cmd = m.RecordList.Update(msg)
-			return m, cmd
+		if (m.State == ZoneListState && m.ZoneList.FilterState() == list.Filtering) ||
+			(m.State == RecordListState && m.RecordList.FilterState() == list.Filtering) {
+			if msg.String() != "esc" {
+				cmd = m.updateList(msg)
+				return m, cmd
+			}
 		}
 
 		// Trigger quit confirmation on 'q'
@@ -119,7 +129,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.State {
 	case ZoneListState:
-		m.ZoneList, cmd = m.ZoneList.Update(msg)
+		cmd = m.updateList(msg)
 		cmds = append(cmds, cmd)
 		if msg, ok := msg.(tea.KeyMsg); ok && msg.String() == "enter" {
 			if i, ok := m.ZoneList.SelectedItem().(*ZoneItem); ok {
@@ -160,7 +170,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
-		m.RecordList, cmd = m.RecordList.Update(msg)
+		cmd = m.updateList(msg)
 		cmds = append(cmds, cmd)
 
 	case EditingRecordState:

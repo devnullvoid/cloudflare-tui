@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var zonesCmd = &cobra.Command{
@@ -17,19 +16,7 @@ var zonesListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all zones accessible by the token",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		logPath := viper.GetString("log_path")
-		debug := viper.GetBool("debug")
-		logger, logFile := NewLogger(logPath, debug)
-		if logFile != nil {
-			defer func() { _ = logFile.Close() }()
-		}
-
-		api, err := getCloudflareClient(logger)
-		if err != nil {
-			return err
-		}
-
-		zones, err := api.ListZones(context.Background())
+		zones, err := app.API.ListZones(context.Background())
 		if err != nil {
 			return fmt.Errorf("failed to list zones: %w", err)
 		}
@@ -45,8 +32,7 @@ var zonesListCmd = &cobra.Command{
 			}
 		}
 
-		format := viper.GetString("format")
-		return printOutput(zones, format, headers, rows)
+		return printOutput(zones, app.Config.Format, headers, rows)
 	},
 }
 

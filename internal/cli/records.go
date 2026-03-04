@@ -6,7 +6,6 @@ import (
 
 	"github.com/cloudflare/cloudflare-go"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var recordsCmd = &cobra.Command{
@@ -36,25 +35,13 @@ var recordsListCmd = &cobra.Command{
 	Short: "List DNS records for a specific zone",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		logPath := viper.GetString("log_path")
-		debug := viper.GetBool("debug")
-		logger, logFile := NewLogger(logPath, debug)
-		if logFile != nil {
-			defer func() { _ = logFile.Close() }()
-		}
-
-		api, err := getCloudflareClient(logger)
-		if err != nil {
-			return err
-		}
-
-		zoneID, err := resolveZoneID(api, args[0])
+		zoneID, err := resolveZoneID(app.API, args[0])
 		if err != nil {
 			return err
 		}
 
 		rc := cloudflare.ZoneIdentifier(zoneID)
-		records, _, err := api.ListDNSRecords(context.Background(), rc, cloudflare.ListDNSRecordsParams{})
+		records, _, err := app.API.ListDNSRecords(context.Background(), rc, cloudflare.ListDNSRecordsParams{})
 		if err != nil {
 			return fmt.Errorf("failed to list records: %w", err)
 		}
@@ -64,8 +51,7 @@ var recordsListCmd = &cobra.Command{
 			rows[i] = getRecordRow(&records[i])
 		}
 
-		format := viper.GetString("format")
-		return printOutput(records, format, recordHeaders, rows)
+		return printOutput(records, app.Config.Format, recordHeaders, rows)
 	},
 }
 
@@ -81,19 +67,7 @@ var recordsCreateCmd = &cobra.Command{
 	Short: "Create a new DNS record",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		logPath := viper.GetString("log_path")
-		debug := viper.GetBool("debug")
-		logger, logFile := NewLogger(logPath, debug)
-		if logFile != nil {
-			defer func() { _ = logFile.Close() }()
-		}
-
-		api, err := getCloudflareClient(logger)
-		if err != nil {
-			return err
-		}
-
-		zoneID, err := resolveZoneID(api, args[0])
+		zoneID, err := resolveZoneID(app.API, args[0])
 		if err != nil {
 			return err
 		}
@@ -107,14 +81,13 @@ var recordsCreateCmd = &cobra.Command{
 			Proxied: &recordProxied,
 		}
 
-		rec, err := api.CreateDNSRecord(context.Background(), rc, params)
+		rec, err := app.API.CreateDNSRecord(context.Background(), rc, params)
 		if err != nil {
 			return fmt.Errorf("failed to create record: %w", err)
 		}
 
 		rows := [][]string{getRecordRow(&rec)}
-		format := viper.GetString("format")
-		return printOutput(rec, format, recordHeaders, rows)
+		return printOutput(rec, app.Config.Format, recordHeaders, rows)
 	},
 }
 
@@ -123,19 +96,7 @@ var recordsUpdateCmd = &cobra.Command{
 	Short: "Update an existing DNS record",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		logPath := viper.GetString("log_path")
-		debug := viper.GetBool("debug")
-		logger, logFile := NewLogger(logPath, debug)
-		if logFile != nil {
-			defer func() { _ = logFile.Close() }()
-		}
-
-		api, err := getCloudflareClient(logger)
-		if err != nil {
-			return err
-		}
-
-		zoneID, err := resolveZoneID(api, args[0])
+		zoneID, err := resolveZoneID(app.API, args[0])
 		if err != nil {
 			return err
 		}
@@ -151,14 +112,13 @@ var recordsUpdateCmd = &cobra.Command{
 			Proxied: &recordProxied,
 		}
 
-		rec, err := api.UpdateDNSRecord(context.Background(), rc, params)
+		rec, err := app.API.UpdateDNSRecord(context.Background(), rc, params)
 		if err != nil {
 			return fmt.Errorf("failed to update record: %w", err)
 		}
 
 		rows := [][]string{getRecordRow(&rec)}
-		format := viper.GetString("format")
-		return printOutput(rec, format, recordHeaders, rows)
+		return printOutput(rec, app.Config.Format, recordHeaders, rows)
 	},
 }
 
@@ -167,19 +127,7 @@ var recordsDeleteCmd = &cobra.Command{
 	Short: "Delete a DNS record",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		logPath := viper.GetString("log_path")
-		debug := viper.GetBool("debug")
-		logger, logFile := NewLogger(logPath, debug)
-		if logFile != nil {
-			defer func() { _ = logFile.Close() }()
-		}
-
-		api, err := getCloudflareClient(logger)
-		if err != nil {
-			return err
-		}
-
-		zoneID, err := resolveZoneID(api, args[0])
+		zoneID, err := resolveZoneID(app.API, args[0])
 		if err != nil {
 			return err
 		}
@@ -187,7 +135,7 @@ var recordsDeleteCmd = &cobra.Command{
 		recordID := args[1]
 		rc := cloudflare.ZoneIdentifier(zoneID)
 
-		err = api.DeleteDNSRecord(context.Background(), rc, recordID)
+		err = app.API.DeleteDNSRecord(context.Background(), rc, recordID)
 		if err != nil {
 			return fmt.Errorf("failed to delete record: %w", err)
 		}
