@@ -80,6 +80,19 @@ By default, running `cftui` without arguments launches the interactive interface
 ./cftui records create example.com --type A --name api --content 1.1.1.1 --proxied
 ```
 
+## Shell Completion
+
+`cftui` supports shell completion for Bash, Zsh, Fish, and PowerShell, including **dynamic completion for your Cloudflare domain names**.
+
+To enable completion for your current session:
+
+- **Zsh**: `source <(./cftui completion zsh)`
+- **Bash**: `source <(./cftui completion bash)`
+- **Fish**: `./cftui completion fish | source`
+
+To make it permanent, add the appropriate command to your shell's configuration file (e.g., `~/.zshrc`, `~/.bashrc`).
+
 ## License
+
 
 MIT
