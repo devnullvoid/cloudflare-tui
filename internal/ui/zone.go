@@ -2,11 +2,13 @@ package ui
 
 import (
 	"context"
+	"os"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/log"
 	"github.com/cloudflare/cloudflare-go"
 )
 
@@ -54,6 +56,10 @@ func InitialModel(api *cloudflare.API, theme Theme) Model {
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(theme.Primary)
 
+	// Initialize Logger
+	f, _ := os.OpenFile("cftui.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	logger := log.New(f)
+
 	return Model{
 		State:      LoadingZonesState,
 		CfClient:   api,
@@ -61,5 +67,7 @@ func InitialModel(api *cloudflare.API, theme Theme) Model {
 		ZoneList:   l,
 		RecordList: r,
 		Spinner:    s,
+		Logger:     logger,
+		LogFile:    f,
 	}
 }

@@ -16,6 +16,12 @@ func (m Model) Init() tea.Cmd {
 	)
 }
 
+func (m Model) Close() {
+	if m.LogFile != nil {
+		m.LogFile.Close()
+	}
+}
+
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
@@ -26,12 +32,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Err = nil
 			return m, nil
 		}
+		
+		// If we are filtering, we let the list handle all keys except Esc
+		if m.State == ZoneListState && m.ZoneList.FilterState() == list.Filtering {
+			if msg.String() == "esc" {
+				// Escape filtering
+			} else {
+				m.ZoneList, cmd = m.ZoneList.Update(msg)
+				return m, cmd
+			}
+		}
+		if m.State == RecordListState && m.RecordList.FilterState() == list.Filtering {
+			if msg.String() == "esc" {
+				// Escape filtering
+			} else {
+				m.RecordList, cmd = m.RecordList.Update(msg)
+				return m, cmd
+			}
+		}
+
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
 		}
 
 	case FetchedZonesMsg:
+		m.Logger.Info("Fetched zones", "count", len(msg))
 		items := make([]list.Item, len(msg))
 		for i, z := range msg {
 			items[i] = ZoneItem{ID: z.ID, Name: z.Name}
@@ -41,6 +67,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case FetchedRecordsMsg:
+		m.Logger.Info("Fetched records", "count", len(msg), "zoneID", m.SelectedID)
 		items := make([]list.Item, len(msg))
 		for i, r := range msg {
 			items[i] = RecordItem{DNS: r}
@@ -49,11 +76,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.State = RecordListState
 		return m, nil
 
-	case RecordSavedMsg, RecordDeletedMsg:
+	case RecordSavedMsg:
+		m.Logger.Info("Record saved successfully")
+		m.State = LoadingRecordsState
+		return m, tea.Batch(FetchRecords(m.CfClient, m.SelectedID), m.Spinner.Tick)
+
+	case RecordDeletedMsg:
+		m.Logger.Info("Record deleted successfully", "id", m.PendingDeleteID)
 		m.State = LoadingRecordsState
 		return m, tea.Batch(FetchRecords(m.CfClient, m.SelectedID), m.Spinner.Tick)
 
 	case ErrorMsg:
+		m.Logger.Error("API Error", "error", msg.Error())
 		m.Err = msg
 		return m, nil
 
@@ -76,6 +110,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.SelectedID = i.ID
 				m.State = LoadingRecordsState
 				m.RecordList.Title = "DNS Records: " + i.Name
+				m.Logger.Info("Selecting zone", "name", i.Name, "id", i.ID)
 				return m, tea.Batch(FetchRecords(m.CfClient, i.ID), m.Spinner.Tick)
 			}
 		}
@@ -87,12 +122,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.State = ZoneListState
 				return m, nil
 			case "a":
+				m.Logger.Debug("Opening add record form")
 				m.Form = NewRecordForm(nil, m.Theme)
 				m.OldRecord = nil
 				m.State = EditingRecordState
 				return m, nil
 			case "enter":
 				if i, ok := m.RecordList.SelectedItem().(RecordItem); ok {
+					m.Logger.Debug("Opening edit record form", "id", i.DNS.ID)
 					m.Form = NewRecordForm(&i.DNS, m.Theme)
 					m.OldRecord = &i.DNS
 					m.State = EditingRecordState
@@ -166,6 +203,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg, ok := msg.(tea.KeyMsg); ok {
 			switch msg.String() {
 			case "y", "Y", "enter":
+				m.Logger.Info("Saving record", "id", m.Form.ID)
 				return m, SaveRecord(m.CfClient, m.SelectedID, m.Form)
 			case "n", "N", "esc":
 				m.State = EditingRecordState
@@ -177,6 +215,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg, ok := msg.(tea.KeyMsg); ok {
 			switch msg.String() {
 			case "y", "Y", "enter":
+				m.Logger.Info("Deleting record", "id", m.PendingDeleteID)
 				return m, DeleteRecord(m.CfClient, m.SelectedID, m.PendingDeleteID)
 			case "n", "N", "esc":
 				m.State = RecordListState

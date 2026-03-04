@@ -1,0 +1,7 @@
+# Copy to .envrc and fill in your token
+# Requires direnv: https://direnv.net/
+
+export CLOUDFLARE_API_TOKEN=your_token_here
+
+# Optional: Set default theme
+# export CFTUI_THEME=mocha

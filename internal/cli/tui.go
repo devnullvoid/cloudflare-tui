@@ -18,6 +18,7 @@ func runTUI() {
 
 	theme := getTheme()
 	m := ui.InitialModel(api, theme)
+	defer m.Close()
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {

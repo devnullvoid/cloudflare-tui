@@ -2,8 +2,10 @@
 /cftui
 dist/
 
-# Demo
-demo.gif
+# Assets
+assets/*.gif
+assets/*.mp4
+assets/*.webm
 
 # Test coverage
 *.out
@@ -11,6 +13,7 @@ coverage.html
 
 # Environment variables
 .env
+.envrc
 *.log
 
 # Go dependencies

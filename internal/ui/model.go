@@ -1,10 +1,13 @@
 package ui
 
 import (
+	"os"
+
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/log"
 	"github.com/cloudflare/cloudflare-go"
 )
 
@@ -109,6 +112,8 @@ type Model struct {
 	RecordList list.Model
 	Form       RecordForm
 	Spinner    spinner.Model
+	Logger     *log.Logger
+	LogFile    *os.File
 	
 	Err        error
 	SelectedID string

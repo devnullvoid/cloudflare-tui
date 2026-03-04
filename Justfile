@@ -45,4 +45,4 @@ build-all:
 
 # Record demo with VHS
 demo:
-    vhs demo.tape
+    cd assets && vhs demo.tape
