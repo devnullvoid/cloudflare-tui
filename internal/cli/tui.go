@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/devnullvoid/cloudflare-tui/internal/ui"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 func runTUI() {
@@ -17,7 +18,9 @@ func runTUI() {
 	}
 
 	theme := getTheme()
-	m := ui.InitialModel(api, theme)
+	logPath := viper.GetString("log_path")
+	debug := viper.GetBool("debug")
+	m := ui.InitialModel(api, theme, logPath, debug)
 	defer m.Close()
 
 	p := tea.NewProgram(m, tea.WithAltScreen())

@@ -12,13 +12,19 @@
 - **Safe Operations**: Validation and confirmation prompts for all destructive or modifying actions.
 - **Keyboard-Centric**: Fully navigable via keyboard for maximum efficiency.
 - **Themable**: Multiple built-in color schemes (Catppuccin, Nord, Dracula, Gruvbox, etc.).
+- **Headless Mode**: Scriptable CLI commands for automation.
 
 ## Installation
 
-### Prerequisites
+### From Releases
 
-- Go 1.21 or higher.
-- A Cloudflare API Token with `Zone.DNS` (Edit) and `Zone.Zone` (Read) permissions.
+Download the latest pre-compiled binary for your platform from the [Releases](https://github.com/devnullvoid/cloudflare-tui/releases) page.
+
+### Go Install
+
+```bash
+go install github.com/devnullvoid/cloudflare-tui/cmd/cftui@latest
+```
 
 ### Build from Source
 
@@ -52,7 +58,9 @@ By default, running `cftui` without arguments launches the interactive interface
 - **'d'**: Delete the selected DNS record.
 - **'esc' / Backspace**: Go back to the previous view.
 - **Tab / Shift+Tab**: Navigate form fields.
-- **Ctrl+C**: Quit.
+- **'q'**: Quit (with confirmation).
+- **'/'**: Search/Filter lists.
+- **Ctrl+C**: Force Quit.
 
 ### Headless CLI Mode
 
@@ -61,33 +69,22 @@ By default, running `cftui` without arguments launches the interactive interface
 **Global Flags**
 - `-f, --format string`: Output format. Options: `table` (default), `json`, `yaml`.
 - `-t, --theme string` : Color theme. Options: `ansi` (default), `mocha`, `nord`, `dracula`, `rose-pine`, `tokyo-night`, `gruvbox`, `everforest`.
-
-**Commands**
-- `cftui help`: Show help text and available commands.
-- `cftui zones list`: List all zones accessible by the token.
-- `cftui records list <zone-name-or-id>`: List all records for a zone.
-- `cftui records create <zone-name-or-id> --name <name> --content <content> [--type <type>] [--proxied]`: Create a record.
-- `cftui records update <zone-name-or-id> <record-id> --name <name> --content <content> [--type <type>] [--proxied]`: Update a record.
-- `cftui records delete <zone-name-or-id> <record-id>`: Delete a record.
+- `--log string`      : Path to log file (default: `~/.config/cftui/cftui.log` on Linux).
+- `--debug`           : Enable debug logging (verbose).
 
 **Environment Variables**
 - `CLOUDFLARE_API_TOKEN`: Your Cloudflare API token (Required).
 - `CFTUI_THEME`: Set the default theme (e.g., `mocha`, `nord`).
+- `CFTUI_LOG`: Set the log file path.
+- `CFTUI_DEBUG`: Set to `true` to enable debug logging.
 
 *Example:*
 ```bash
-# List zones in YAML format
-./cftui zones list -f yaml
-
 # List records using domain name
 ./cftui records list example.com
 
-# Run TUI with Gruvbox theme
-./cftui --theme gruvbox
-
-# Alternatively, use the environment variable
-export CFTUI_THEME=tokyo-night
-./cftui
+# Run TUI with verbose debug logging
+./cftui --debug --log ./debug.log
 ```
 
 ## Shell Completion

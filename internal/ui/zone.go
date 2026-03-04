@@ -3,6 +3,8 @@ package ui
 import (
 	"context"
 	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -34,7 +36,7 @@ func FetchZones(api *cloudflare.API) tea.Cmd {
 }
 
 // InitialModel returns the initial state of the application.
-func InitialModel(api *cloudflare.API, theme Theme) Model {
+func InitialModel(api *cloudflare.API, theme Theme, logPath string, debug bool) Model {
 	// Customize list delegate with theme colors
 	delegate := list.NewDefaultDelegate()
 	delegate.Styles.SelectedTitle = delegate.Styles.SelectedTitle.
@@ -67,8 +69,25 @@ func InitialModel(api *cloudflare.API, theme Theme) Model {
 	s.Style = lipgloss.NewStyle().Foreground(theme.Primary)
 
 	// Initialize Logger
-	f, _ := os.OpenFile("cftui.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
-	logger := log.New(f)
+	var f *os.File
+	var logger *log.Logger
+	if logPath != "" {
+		// Ensure directory exists
+		_ = os.MkdirAll(filepath.Dir(logPath), 0755)
+		f, _ = os.OpenFile(logPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+		logger = log.New(f)
+		logger.SetReportTimestamp(true)
+		logger.SetTimeFormat(time.Kitchen)
+		if debug {
+			logger.SetLevel(log.DebugLevel)
+		} else {
+			logger.SetLevel(log.InfoLevel)
+		}
+	} else {
+		// Fallback to no-op logger if path is empty (though cli ensures it shouldn't be)
+		logger = log.New(os.Stderr)
+		logger.SetLevel(log.FatalLevel)
+	}
 
 	return Model{
 		State:      LoadingZonesState,
