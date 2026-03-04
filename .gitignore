@@ -1,3 +1,9 @@
-cftui
+# Binaries
+/cftui
+
+# Environment variables
 .env
 *.log
+
+# Go dependencies
+vendor/
