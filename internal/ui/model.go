@@ -2,6 +2,7 @@ package ui
 
 import (
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/cloudflare/cloudflare-go"
@@ -20,27 +21,46 @@ const (
 	ConfirmingSaveState
 )
 
-// Styles for the UI.
+// Theme defines the color scheme for the application.
+type Theme struct {
+	Primary   lipgloss.TerminalColor
+	Secondary lipgloss.TerminalColor
+	Error     lipgloss.TerminalColor
+	Warning   lipgloss.TerminalColor
+	Inactive  lipgloss.TerminalColor
+}
+
+// DefaultTheme provides a standard "Charm" inspired palette.
+var DefaultTheme = Theme{
+	Primary:   lipgloss.Color("205"), // Pink
+	Secondary: lipgloss.Color("86"),  // Aqua
+	Error:     lipgloss.Color("9"),   // Red
+	Warning:   lipgloss.Color("3"),   // Yellow
+	Inactive:  lipgloss.Color("241"), // Gray
+}
+
+// Styles are derived from the theme.
 var (
-	DocStyle      = lipgloss.NewStyle().Margin(1, 2)
-	ErrStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
-	FocusedStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
-	NoStyle       = lipgloss.NewStyle()
-	HelpStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("241")).MarginTop(1)
-	ConfirmStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Bold(true)
+	DocStyle     = lipgloss.NewStyle().Margin(1, 2)
+	NoStyle      = lipgloss.NewStyle()
 )
 
 // Model represents the application state.
 type Model struct {
 	State      SessionState
 	CfClient   *cloudflare.API
+	Theme      Theme
+	
 	ZoneList   list.Model
 	RecordList list.Model
 	Form       RecordForm
+	Spinner    spinner.Model
+	
 	Err        error
 	SelectedID string
 	
-	// Pending deletion info
+	// Confirmation info
+	OldRecord         *cloudflare.DNSRecord
 	PendingDeleteID   string
 	PendingDeleteName string
 }

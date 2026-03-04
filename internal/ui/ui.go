@@ -6,10 +6,14 @@ import (
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 func (m Model) Init() tea.Cmd {
-	return FetchZones(m.CfClient)
+	return tea.Batch(
+		FetchZones(m.CfClient),
+		m.Spinner.Tick,
+	)
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -59,6 +63,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.RecordList.SetSize(msg.Width-h, msg.Height-v)
 	}
 
+	// Always update spinner if we are in a loading state
+	if m.State == LoadingZonesState || m.State == LoadingRecordsState {
+		m.Spinner, cmd = m.Spinner.Update(msg)
+		cmds = append(cmds, cmd)
+	}
+
 	switch m.State {
 	case ZoneListState:
 		m.ZoneList, cmd = m.ZoneList.Update(msg)
@@ -67,7 +77,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.SelectedID = i.ID
 				m.State = LoadingRecordsState
 				m.RecordList.Title = "DNS Records: " + i.Name
-				return m, FetchRecords(m.CfClient, i.ID)
+				return m, tea.Batch(FetchRecords(m.CfClient, i.ID), m.Spinner.Tick)
 			}
 		}
 		return m, cmd
@@ -80,11 +90,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case "a":
 				m.Form = NewRecordForm(nil)
+				m.OldRecord = nil
 				m.State = EditingRecordState
 				return m, nil
 			case "enter":
 				if i, ok := m.RecordList.SelectedItem().(RecordItem); ok {
 					m.Form = NewRecordForm(&i.DNS)
+					m.OldRecord = &i.DNS
 					m.State = EditingRecordState
 					return m, nil
 				}
@@ -120,10 +132,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.Form.Focused = 4
 				}
 
-				cmds = make([]tea.Cmd, len(m.Form.Inputs))
 				for i := range m.Form.Inputs {
 					if i == m.Form.Focused {
-						cmds[i] = m.Form.Inputs[i].Focus()
+						cmds = append(cmds, m.Form.Inputs[i].Focus())
 					} else {
 						m.Form.Inputs[i].Blur()
 					}
@@ -148,9 +159,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		cmds = make([]tea.Cmd, len(m.Form.Inputs))
 		for i := range m.Form.Inputs {
-			m.Form.Inputs[i], cmds[i] = m.Form.Inputs[i].Update(msg)
+			m.Form.Inputs[i], cmd = m.Form.Inputs[i].Update(msg)
+			cmds = append(cmds, cmd)
 		}
 		return m, tea.Batch(cmds...)
 
@@ -181,24 +192,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
+	errStyle := lipgloss.NewStyle().Foreground(m.Theme.Error).Bold(true)
+	focusedStyle := lipgloss.NewStyle().Foreground(m.Theme.Primary)
+	confirmStyle := lipgloss.NewStyle().Foreground(m.Theme.Warning).Bold(true)
+	diffOld := lipgloss.NewStyle().Foreground(m.Theme.Error).Strikethrough(true)
+	diffNew := lipgloss.NewStyle().Foreground(m.Theme.Secondary)
+
 	if m.Err != nil {
-		return DocStyle.Render(fmt.Sprintf("%s\n\nPress any key to continue.", ErrStyle.Render("Error: "+m.Err.Error())))
+		return DocStyle.Render(fmt.Sprintf("%s\n\nPress any key to continue.", errStyle.Render("Error: "+m.Err.Error())))
 	}
 
 	switch m.State {
 	case LoadingZonesState:
-		return DocStyle.Render("Loading zones from Cloudflare...")
+		return DocStyle.Render(fmt.Sprintf("%s Loading zones from Cloudflare...", m.Spinner.View()))
 	case ZoneListState:
 		return DocStyle.Render(m.ZoneList.View())
 	case LoadingRecordsState:
-		return DocStyle.Render(fmt.Sprintf("Loading DNS records for %s...", m.SelectedID))
+		return DocStyle.Render(fmt.Sprintf("%s Loading DNS records for %s...", m.Spinner.View(), m.SelectedID))
 	case RecordListState:
 		view := m.RecordList.View()
-		help := HelpStyle.Render("(a) add record, (enter) edit record, (d) delete record, (esc) back")
+		help := lipgloss.NewStyle().Foreground(m.Theme.Inactive).MarginTop(1).Render("(a) add record, (enter) edit record, (d) delete record, (esc) back")
 		return DocStyle.Render(view + "\n" + help)
 	case EditingRecordState:
 		var b strings.Builder
-		b.WriteString(ConfirmStyle.Render("Editing DNS Record") + "\n\n")
+		title := "Adding DNS Record"
+		if m.Form.ID != "" {
+			title = "Editing DNS Record"
+		}
+		b.WriteString(confirmStyle.Render(title) + "\n\n")
 
 		for i := range m.Form.Inputs {
 			b.WriteString(m.Form.Inputs[i].View())
@@ -213,14 +234,14 @@ func (m Model) View() string {
 		}
 		
 		if m.Form.Focused == 3 {
-			b.WriteString("\n\n" + FocusedStyle.Render(proxiedStr))
+			b.WriteString("\n\n" + focusedStyle.Render(proxiedStr))
 		} else {
 			b.WriteString("\n\n" + proxiedStr)
 		}
 
 		saveStr := "Save"
 		if m.Form.Focused == 4 {
-			b.WriteString("\n\n" + FocusedStyle.Render("["+saveStr+"]"))
+			b.WriteString("\n\n" + focusedStyle.Render("["+saveStr+"]"))
 		} else {
 			b.WriteString("\n\n[" + saveStr + "]")
 		}
@@ -230,10 +251,39 @@ func (m Model) View() string {
 		return DocStyle.Render(b.String())
 
 	case ConfirmingSaveState:
-		return DocStyle.Render(ConfirmStyle.Render("Are you sure you want to save these changes? (y/n)"))
+		var b strings.Builder
+		b.WriteString(confirmStyle.Render("Review Changes") + "\n\n")
+		
+		if m.OldRecord != nil {
+			// Change View
+			b.WriteString(fmt.Sprintf("Type:    %s -> %s\n", diffOld.Render(m.OldRecord.Type), diffNew.Render(m.Form.Inputs[0].Value())))
+			b.WriteString(fmt.Sprintf("Name:    %s -> %s\n", diffOld.Render(m.OldRecord.Name), diffNew.Render(m.Form.Inputs[1].Value())))
+			b.WriteString(fmt.Sprintf("Content: %s -> %s\n", diffOld.Render(m.OldRecord.Content), diffNew.Render(m.Form.Inputs[2].Value())))
+			
+			oldProxied := "No"
+			if m.OldRecord.Proxied != nil && *m.OldRecord.Proxied { oldProxied = "Yes" }
+			newProxied := "No"
+			if m.Form.Proxied { newProxied = "Yes" }
+			b.WriteString(fmt.Sprintf("Proxied: %s -> %s\n", diffOld.Render(oldProxied), diffNew.Render(newProxied)))
+		} else {
+			// New Record View
+			b.WriteString(fmt.Sprintf("Type:    %s\n", diffNew.Render(m.Form.Inputs[0].Value())))
+			b.WriteString(fmt.Sprintf("Name:    %s\n", diffNew.Render(m.Form.Inputs[1].Value())))
+			b.WriteString(fmt.Sprintf("Content: %s\n", diffNew.Render(m.Form.Inputs[2].Value())))
+			proxied := "No"
+			if m.Form.Proxied { proxied = "Yes" }
+			b.WriteString(fmt.Sprintf("Proxied: %s\n", diffNew.Render(proxied)))
+		}
+
+		b.WriteString("\n" + confirmStyle.Render("Confirm save? (y/n)"))
+		return DocStyle.Render(b.String())
 
 	case ConfirmingDeleteState:
-		return DocStyle.Render(ConfirmStyle.Render(fmt.Sprintf("Are you sure you want to delete '%s'? (y/n)", m.PendingDeleteName)))
+		var b strings.Builder
+		b.WriteString(confirmStyle.Render("Confirm Deletion") + "\n\n")
+		b.WriteString(fmt.Sprintf("Record: %s\nID:     %s\n\n", m.PendingDeleteName, m.PendingDeleteID))
+		b.WriteString(errStyle.Render("Are you sure you want to delete this record? (y/n)"))
+		return DocStyle.Render(b.String())
 
 	default:
 		return "Unknown state"

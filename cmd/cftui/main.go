@@ -14,7 +14,7 @@ func main() {
 	// 1. Authentication Check
 	token := os.Getenv("CLOUDFLARE_API_TOKEN")
 	if token == "" {
-		fmt.Fprintln(os.Stderr, ui.ErrStyle.Render("Error: CLOUDFLARE_API_TOKEN environment variable is required."))
+		fmt.Fprintln(os.Stderr, "Error: CLOUDFLARE_API_TOKEN environment variable is required.")
 		os.Exit(1)
 	}
 

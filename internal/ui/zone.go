@@ -4,7 +4,9 @@ import (
 	"context"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/cloudflare/cloudflare-go"
 )
 
@@ -37,10 +39,16 @@ func InitialModel(api *cloudflare.API) Model {
 	r := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
 	r.Title = "DNS Records"
 
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(DefaultTheme.Primary)
+
 	return Model{
 		State:      LoadingZonesState,
 		CfClient:   api,
+		Theme:      DefaultTheme,
 		ZoneList:   l,
 		RecordList: r,
+		Spinner:    s,
 	}
 }
