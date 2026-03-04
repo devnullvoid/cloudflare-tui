@@ -33,7 +33,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	// Global flags
-	rootCmd.PersistentFlags().StringP("format", "f", "json", "Output format (json, yaml)")
+	rootCmd.PersistentFlags().StringP("format", "f", "table", "Output format (table, json, yaml)")
 	viper.BindPFlag("format", rootCmd.PersistentFlags().Lookup("format"))
 }
 

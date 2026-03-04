@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/table"
 	"github.com/cloudflare/cloudflare-go"
+	"github.com/devnullvoid/cloudflare-tui/internal/ui"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 )
@@ -25,7 +28,7 @@ func getCloudflareClient() (*cloudflare.API, error) {
 }
 
 // printOutput formats and prints structured data based on the requested format.
-func printOutput(data interface{}, format string) error {
+func printOutput(data interface{}, format string, tableHeaders []string, tableRows [][]string) error {
 	switch format {
 	case "json":
 		b, err := json.MarshalIndent(data, "", "  ")
@@ -39,13 +42,33 @@ func printOutput(data interface{}, format string) error {
 			return err
 		}
 		fmt.Print(string(b))
-	default:
-		// Default to JSON if format is unsupported or text (for complex structs)
-		b, err := json.MarshalIndent(data, "", "  ")
-		if err != nil {
-			return err
+	case "table":
+		if len(tableHeaders) == 0 || len(tableRows) == 0 {
+			fmt.Println("No data to display.")
+			return nil
 		}
-		fmt.Println(string(b))
+		
+		t := table.New().
+			Border(lipgloss.NormalBorder()).
+			BorderStyle(lipgloss.NewStyle().Foreground(ui.DefaultTheme.Primary)).
+			Headers(tableHeaders...).
+			Rows(tableRows...)
+
+		// Apply styles to headers
+		t.StyleFunc(func(row, col int) lipgloss.Style {
+			if row == 0 { // Header
+				return lipgloss.NewStyle().
+					Foreground(ui.DefaultTheme.Primary).
+					Bold(true).
+					Padding(0, 1)
+			}
+			return lipgloss.NewStyle().Padding(0, 1)
+		})
+
+		fmt.Println(t.Render())
+	default:
+		// Default to table if format is unsupported
+		return printOutput(data, "table", tableHeaders, tableRows)
 	}
 	return nil
 }

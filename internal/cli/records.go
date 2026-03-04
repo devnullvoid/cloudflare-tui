@@ -14,6 +14,23 @@ var recordsCmd = &cobra.Command{
 	Short: "Manage DNS Records for a zone",
 }
 
+func getRecordRow(r cloudflare.DNSRecord) []string {
+	proxied := "No"
+	if r.Proxied != nil && *r.Proxied {
+		proxied = "Yes"
+	}
+	return []string{
+		r.ID,
+		r.Type,
+		r.Name,
+		r.Content,
+		proxied,
+		fmt.Sprintf("%v", r.TTL),
+	}
+}
+
+var recordHeaders = []string{"ID", "Type", "Name", "Content", "Proxied", "TTL"}
+
 var recordsListCmd = &cobra.Command{
 	Use:   "list [zone-id]",
 	Short: "List DNS records for a specific zone",
@@ -31,8 +48,13 @@ var recordsListCmd = &cobra.Command{
 			return fmt.Errorf("failed to list records: %w", err)
 		}
 
+		rows := make([][]string, len(records))
+		for i, r := range records {
+			rows[i] = getRecordRow(r)
+		}
+
 		format := viper.GetString("format")
-		return printOutput(records, format)
+		return printOutput(records, format, recordHeaders, rows)
 	},
 }
 
@@ -68,8 +90,9 @@ var recordsCreateCmd = &cobra.Command{
 			return fmt.Errorf("failed to create record: %w", err)
 		}
 
+		rows := [][]string{getRecordRow(rec)}
 		format := viper.GetString("format")
-		return printOutput(rec, format)
+		return printOutput(rec, format, recordHeaders, rows)
 	},
 }
 
@@ -100,8 +123,9 @@ var recordsUpdateCmd = &cobra.Command{
 			return fmt.Errorf("failed to update record: %w", err)
 		}
 
+		rows := [][]string{getRecordRow(rec)}
 		format := viper.GetString("format")
-		return printOutput(rec, format)
+		return printOutput(rec, format, recordHeaders, rows)
 	},
 }
 

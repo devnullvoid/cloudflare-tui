@@ -58,7 +58,7 @@ By default, running `cftui` without arguments launches the interactive interface
 `cftui` also provides powerful CLI commands for scripting and outputting structured data.
 
 **Global Flags**
-- `-f, --format string`: Output format. Options: `json` (default), `yaml`.
+- `-f, --format string`: Output format. Options: `table` (default), `json`, `yaml`.
 
 **Commands**
 - `cftui help`: Show help text and available commands.

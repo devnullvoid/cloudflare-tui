@@ -27,8 +27,19 @@ var zonesListCmd = &cobra.Command{
 			return fmt.Errorf("failed to list zones: %w", err)
 		}
 
+		headers := []string{"ID", "Name", "Status", "Paused"}
+		rows := make([][]string, len(zones))
+		for i, z := range zones {
+			rows[i] = []string{
+				z.ID,
+				z.Name,
+				z.Status,
+				fmt.Sprintf("%v", z.Paused),
+			}
+		}
+
 		format := viper.GetString("format")
-		return printOutput(zones, format)
+		return printOutput(zones, format, headers, rows)
 	},
 }
 
