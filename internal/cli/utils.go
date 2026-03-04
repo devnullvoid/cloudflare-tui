@@ -98,7 +98,7 @@ func printOutput(data interface{}, format string, tableHeaders []string, tableRo
 			Rows(tableRows...)
 
 		t.StyleFunc(func(row, col int) lipgloss.Style {
-			if row == 0 { // Header
+			if row == table.HeaderRow {
 				return lipgloss.NewStyle().
 					Foreground(ui.DefaultTheme.Primary).
 					Bold(true).

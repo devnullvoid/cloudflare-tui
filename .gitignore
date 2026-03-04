@@ -1,5 +1,10 @@
 # Binaries
 /cftui
+dist/
+
+# Test coverage
+*.out
+coverage.html
 
 # Environment variables
 .env
@@ -7,3 +12,14 @@
 
 # Go dependencies
 vendor/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
