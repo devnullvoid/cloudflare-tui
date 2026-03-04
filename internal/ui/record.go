@@ -15,7 +15,9 @@ type RecordItem struct {
 }
 
 func (i RecordItem) Title() string {
-	return fmt.Sprintf("%-6s %s", i.DNS.Type, i.DNS.Name)
+	// Put the name first so visual filtering highlights (underlining) align correctly.
+	// We append the type at the end in brackets.
+	return fmt.Sprintf("%s [%s]", i.DNS.Name, i.DNS.Type)
 }
 func (i RecordItem) Description() string {
 	proxied := "No"
