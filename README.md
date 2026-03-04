@@ -63,18 +63,21 @@ By default, running `cftui` without arguments launches the interactive interface
 **Commands**
 - `cftui help`: Show help text and available commands.
 - `cftui zones list`: List all zones accessible by the token.
-- `cftui records list <zone-id>`: List all records for a zone.
-- `cftui records create <zone-id> --name <name> --content <content> [--type <type>] [--proxied]`: Create a record.
-- `cftui records update <zone-id> <record-id> --name <name> --content <content> [--type <type>] [--proxied]`: Update a record.
-- `cftui records delete <zone-id> <record-id>`: Delete a record.
+- `cftui records list <zone-name-or-id>`: List all records for a zone.
+- `cftui records create <zone-name-or-id> --name <name> --content <content> [--type <type>] [--proxied]`: Create a record.
+- `cftui records update <zone-name-or-id> <record-id> --name <name> --content <content> [--type <type>] [--proxied]`: Update a record.
+- `cftui records delete <zone-name-or-id> <record-id>`: Delete a record.
 
 *Example:*
 ```bash
 # List zones in YAML format
 ./cftui zones list -f yaml
 
-# Create a new A record
-./cftui records create 023e105f4ecef8ad9ca31a8372d0c353 --type A --name api.example.com --content 192.168.1.1 --proxied
+# List records using domain name
+./cftui records list example.com
+
+# Create a new A record using domain name
+./cftui records create example.com --type A --name api --content 1.1.1.1 --proxied
 ```
 
 ## License

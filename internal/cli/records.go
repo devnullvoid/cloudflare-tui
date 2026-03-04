@@ -32,7 +32,7 @@ func getRecordRow(r cloudflare.DNSRecord) []string {
 var recordHeaders = []string{"ID", "Type", "Name", "Content", "Proxied", "TTL"}
 
 var recordsListCmd = &cobra.Command{
-	Use:   "list [zone-id]",
+	Use:   "list [zone-name-or-id]",
 	Short: "List DNS records for a specific zone",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,7 +41,11 @@ var recordsListCmd = &cobra.Command{
 			return err
 		}
 
-		zoneID := args[0]
+		zoneID, err := resolveZoneID(api, args[0])
+		if err != nil {
+			return err
+		}
+
 		rc := cloudflare.ZoneIdentifier(zoneID)
 		records, _, err := api.ListDNSRecords(context.Background(), rc, cloudflare.ListDNSRecordsParams{})
 		if err != nil {
@@ -66,7 +70,7 @@ var (
 )
 
 var recordsCreateCmd = &cobra.Command{
-	Use:   "create [zone-id]",
+	Use:   "create [zone-name-or-id]",
 	Short: "Create a new DNS record",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -75,7 +79,11 @@ var recordsCreateCmd = &cobra.Command{
 			return err
 		}
 
-		zoneID := args[0]
+		zoneID, err := resolveZoneID(api, args[0])
+		if err != nil {
+			return err
+		}
+
 		rc := cloudflare.ZoneIdentifier(zoneID)
 
 		params := cloudflare.CreateDNSRecordParams{
@@ -97,7 +105,7 @@ var recordsCreateCmd = &cobra.Command{
 }
 
 var recordsUpdateCmd = &cobra.Command{
-	Use:   "update [zone-id] [record-id]",
+	Use:   "update [zone-name-or-id] [record-id]",
 	Short: "Update an existing DNS record",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -106,7 +114,11 @@ var recordsUpdateCmd = &cobra.Command{
 			return err
 		}
 
-		zoneID := args[0]
+		zoneID, err := resolveZoneID(api, args[0])
+		if err != nil {
+			return err
+		}
+
 		recordID := args[1]
 		rc := cloudflare.ZoneIdentifier(zoneID)
 
@@ -130,7 +142,7 @@ var recordsUpdateCmd = &cobra.Command{
 }
 
 var recordsDeleteCmd = &cobra.Command{
-	Use:   "delete [zone-id] [record-id]",
+	Use:   "delete [zone-name-or-id] [record-id]",
 	Short: "Delete a DNS record",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -139,7 +151,11 @@ var recordsDeleteCmd = &cobra.Command{
 			return err
 		}
 
-		zoneID := args[0]
+		zoneID, err := resolveZoneID(api, args[0])
+		if err != nil {
+			return err
+		}
+
 		recordID := args[1]
 		rc := cloudflare.ZoneIdentifier(zoneID)
 

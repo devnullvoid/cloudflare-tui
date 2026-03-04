@@ -27,6 +27,26 @@ func getCloudflareClient() (*cloudflare.API, error) {
 	return api, nil
 }
 
+// resolveZoneID takes a string that could be either a Zone ID or a Zone Name
+// and returns the actual Zone ID.
+func resolveZoneID(api *cloudflare.API, identifier string) (string, error) {
+	// If it's already a 32-character hex string, it's likely already an ID.
+	// But to be safe and user-friendly, we'll try to find a zone with this name first.
+	zones, err := api.ListZones(context.Background(), cloudflare.ListZonesParams{Name: identifier})
+	if err == nil && len(zones) > 0 {
+		return zones[0].ID, nil
+	}
+
+	// If name lookup failed or returned nothing, let's check if the identifier itself works as an ID
+	// by fetching that specific zone.
+	zone, err := api.GetZone(context.Background(), identifier)
+	if err == nil {
+		return zone.ID, nil
+	}
+
+	return "", fmt.Errorf("could not find zone with name or ID: %s", identifier)
+}
+
 // printOutput formats and prints structured data based on the requested format.
 func printOutput(data interface{}, format string, tableHeaders []string, tableRows [][]string) error {
 	switch format {
