@@ -47,10 +47,20 @@ func InitialModel(api *cloudflare.API, theme Theme) Model {
 	l := list.New([]list.Item{}, delegate, 0, 0)
 	l.Title = "Cloudflare Zones"
 	l.Styles.Title = l.Styles.Title.Background(theme.Primary).Foreground(lipgloss.Color("#1e1e2e"))
+	
+	// Apply theme to filter input
+	l.FilterInput.PromptStyle = l.FilterInput.PromptStyle.Foreground(theme.Primary)
+	l.FilterInput.TextStyle = l.FilterInput.TextStyle.Foreground(theme.Secondary)
+	l.FilterInput.Cursor.Style = l.FilterInput.Cursor.Style.Foreground(theme.Primary)
 
 	r := list.New([]list.Item{}, delegate, 0, 0)
 	r.Title = "DNS Records"
 	r.Styles.Title = r.Styles.Title.Background(theme.Primary).Foreground(lipgloss.Color("#1e1e2e"))
+	
+	// Apply theme to filter input
+	r.FilterInput.PromptStyle = r.FilterInput.PromptStyle.Foreground(theme.Primary)
+	r.FilterInput.TextStyle = r.FilterInput.TextStyle.Foreground(theme.Secondary)
+	r.FilterInput.Cursor.Style = r.FilterInput.Cursor.Style.Foreground(theme.Primary)
 
 	s := spinner.New()
 	s.Spinner = spinner.Dot
