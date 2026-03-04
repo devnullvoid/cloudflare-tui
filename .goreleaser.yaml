@@ -1,0 +1,54 @@
+# .goreleaser.yaml
+# Build customization
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    main: ./cmd/cftui
+    binary: cftui
+
+# Archive customization
+archives:
+  - format: tar.gz
+    # use zip for windows archives
+    format_overrides:
+      - goos: windows
+        format: zip
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+
+# Checksum customization
+checksum:
+  name_template: 'checksums.txt'
+
+# Changelog customization
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+
+# Release customization
+release:
+  github:
+    owner: devnullvoid
+    name: cloudflare-tui
+  draft: false
+  prerelease: auto
+  header: |
+    ## cftui - Cloudflare TUI
+    Interactive and scriptable Cloudflare DNS management.
+  footer: |
+    ---
+    Built with Go and Bubble Tea.
