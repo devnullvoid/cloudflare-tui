@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"os"
-	"path/filepath"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -38,7 +37,7 @@ func FetchZones(api *cloudflare.API, logger *log.Logger) tea.Cmd {
 }
 
 // InitialModel returns the initial state of the application.
-func InitialModel(api *cloudflare.API, theme Theme, logPath string, debug bool) Model {
+func InitialModel(api *cloudflare.API, theme Theme, logger *log.Logger, logFile *os.File) Model {
 	// Customize list delegate with theme colors
 	delegate := list.NewDefaultDelegate()
 	delegate.Styles.SelectedTitle = delegate.Styles.SelectedTitle.
@@ -70,43 +69,6 @@ func InitialModel(api *cloudflare.API, theme Theme, logPath string, debug bool) 
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(theme.Primary)
 
-	// Initialize Logger
-	var f *os.File
-	var logger *log.Logger
-	if logPath != "" {
-		_ = os.MkdirAll(filepath.Dir(logPath), 0755)
-		f, _ = os.OpenFile(logPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
-		
-		logger = log.New(f)
-		logger.SetReportTimestamp(true)
-		// Include brackets directly in the time format
-		logger.SetTimeFormat("[2006-01-02 15:04:05]")
-		
-		// Custom Styles for [LEVEL] format
-		styles := log.DefaultStyles()
-		
-		// Wrap levels in brackets and remove default padding/colors for file logging
-		levelStyle := func(level string) lipgloss.Style {
-			return lipgloss.NewStyle().SetString("[" + level + "]")
-		}
-		
-		styles.Levels[log.DebugLevel] = levelStyle("DEBUG")
-		styles.Levels[log.InfoLevel] = levelStyle("INFO")
-		styles.Levels[log.WarnLevel] = levelStyle("WARN")
-		styles.Levels[log.ErrorLevel] = levelStyle("ERROR")
-		
-		logger.SetStyles(styles)
-
-		if debug {
-			logger.SetLevel(log.DebugLevel)
-		} else {
-			logger.SetLevel(log.InfoLevel)
-		}
-	} else {
-		logger = log.New(os.Stderr)
-		logger.SetLevel(log.FatalLevel)
-	}
-
 	return Model{
 		State:      LoadingZonesState,
 		CfClient:   api,
@@ -115,6 +77,6 @@ func InitialModel(api *cloudflare.API, theme Theme, logPath string, debug bool) 
 		RecordList: r,
 		Spinner:    s,
 		Logger:     logger,
-		LogFile:    f,
+		LogFile:    logFile,
 	}
 }

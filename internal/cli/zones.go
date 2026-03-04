@@ -17,7 +17,14 @@ var zonesListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all zones accessible by the token",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		api, err := getCloudflareClient()
+		logPath := viper.GetString("log_path")
+		debug := viper.GetBool("debug")
+		logger, logFile := NewLogger(logPath, debug)
+		if logFile != nil {
+			defer logFile.Close()
+		}
+
+		api, err := getCloudflareClient(logger)
 		if err != nil {
 			return err
 		}

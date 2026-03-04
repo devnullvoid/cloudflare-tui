@@ -11,16 +11,18 @@ import (
 )
 
 func runTUI() {
-	api, err := getCloudflareClient()
+	theme := getTheme()
+	logPath := viper.GetString("log_path")
+	debug := viper.GetBool("debug")
+	logger, logFile := NewLogger(logPath, debug)
+
+	api, err := getCloudflareClient(logger)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 
-	theme := getTheme()
-	logPath := viper.GetString("log_path")
-	debug := viper.GetBool("debug")
-	m := ui.InitialModel(api, theme, logPath, debug)
+	m := ui.InitialModel(api, theme, logger, logFile)
 	defer m.Close()
 
 	p := tea.NewProgram(m, tea.WithAltScreen())

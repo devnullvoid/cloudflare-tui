@@ -4,23 +4,100 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httputil"
+	"os"
+	"path/filepath"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
+	"github.com/charmbracelet/log"
 	"github.com/cloudflare/cloudflare-go"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 )
 
-// getCloudflareClient initializes the Cloudflare API client using the token from Viper.
-func getCloudflareClient() (*cloudflare.API, error) {
+// loggingRoundTripper logs HTTP requests and responses.
+type loggingRoundTripper struct {
+	next   http.RoundTripper
+	logger *log.Logger
+}
+
+func (l *loggingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Log Request
+	dump, err := httputil.DumpRequestOut(req, true)
+	if err == nil {
+		l.logger.Debug("Cloudflare API Request", "raw", string(dump))
+	}
+
+	resp, err := l.next.RoundTrip(req)
+	if err != nil {
+		return resp, err
+	}
+
+	// Log Response
+	dumpResp, err := httputil.DumpResponse(resp, true)
+	if err == nil {
+		l.logger.Debug("Cloudflare API Response", "raw", string(dumpResp))
+	}
+
+	return resp, nil
+}
+
+// NewLogger creates a themed logger for file output.
+func NewLogger(logPath string, debug bool) (*log.Logger, *os.File) {
+	if logPath == "" {
+		return log.New(os.Stderr), nil
+	}
+
+	_ = os.MkdirAll(filepath.Dir(logPath), 0755)
+	f, _ := os.OpenFile(logPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	
+	logger := log.New(f)
+	logger.SetReportTimestamp(true)
+	logger.SetTimeFormat("[2006-01-02 15:04:05]")
+	
+	styles := log.DefaultStyles()
+	levelStyle := func(level string) lipgloss.Style {
+		return lipgloss.NewStyle().SetString("[" + level + "]")
+	}
+	styles.Levels[log.DebugLevel] = levelStyle("DEBUG")
+	styles.Levels[log.InfoLevel] = levelStyle("INFO")
+	styles.Levels[log.WarnLevel] = levelStyle("WARN")
+	styles.Levels[log.ErrorLevel] = levelStyle("ERROR")
+	logger.SetStyles(styles)
+
+	if debug {
+		logger.SetLevel(log.DebugLevel)
+	} else {
+		logger.SetLevel(log.InfoLevel)
+	}
+
+	return logger, f
+}
+
+// getCloudflareClient initializes the Cloudflare API client.
+func getCloudflareClient(logger *log.Logger) (*cloudflare.API, error) {
 	token := viper.GetString("api_token")
 	if token == "" {
 		return nil, fmt.Errorf("CLOUDFLARE_API_TOKEN environment variable is required")
 	}
 
-	api, err := cloudflare.NewWithAPIToken(token)
+	opts := []cloudflare.Option{}
+	
+	// If debugging is active, wrap the HTTP client to log raw requests/responses
+	if logger != nil && logger.GetLevel() == log.DebugLevel {
+		httpClient := &http.Client{
+			Transport: &loggingRoundTripper{
+				next:   http.DefaultTransport,
+				logger: logger,
+			},
+		}
+		opts = append(opts, cloudflare.HTTPClient(httpClient))
+	}
+
+	api, err := cloudflare.NewWithAPIToken(token, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize Cloudflare client: %w", err)
 	}
@@ -29,15 +106,12 @@ func getCloudflareClient() (*cloudflare.API, error) {
 }
 
 // resolveZoneID takes a string that could be either a Zone ID or a Zone Name
-// and returns the actual Zone ID.
 func resolveZoneID(api *cloudflare.API, identifier string) (string, error) {
-	// Search for zone by name
 	zones, err := api.ListZones(context.Background(), identifier)
 	if err == nil && len(zones) > 0 {
 		return zones[0].ID, nil
 	}
 
-	// Try as ID
 	zone, err := api.ZoneDetails(context.Background(), identifier)
 	if err == nil {
 		return zone.ID, nil
@@ -48,7 +122,8 @@ func resolveZoneID(api *cloudflare.API, identifier string) (string, error) {
 
 // CompleteZoneNames returns a list of zone names for shell completion.
 func CompleteZoneNames(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	api, err := getCloudflareClient()
+	// We don't log during completion to keep it fast and clean
+	api, err := getCloudflareClient(nil)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}

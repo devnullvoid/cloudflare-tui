@@ -8,7 +8,7 @@ import (
 )
 
 func TestUpdate(t *testing.T) {
-	m := ui.InitialModel(nil, ui.DefaultTheme, "", false)
+	m := ui.InitialModel(nil, ui.DefaultTheme, nil, nil)
 
 	// Test case: FetchedZonesMsg should transition to ZoneListState
 	zones := []cloudflare.Zone{

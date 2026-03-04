@@ -36,7 +36,14 @@ var recordsListCmd = &cobra.Command{
 	Short: "List DNS records for a specific zone",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		api, err := getCloudflareClient()
+		logPath := viper.GetString("log_path")
+		debug := viper.GetBool("debug")
+		logger, logFile := NewLogger(logPath, debug)
+		if logFile != nil {
+			defer logFile.Close()
+		}
+
+		api, err := getCloudflareClient(logger)
 		if err != nil {
 			return err
 		}
@@ -74,7 +81,14 @@ var recordsCreateCmd = &cobra.Command{
 	Short: "Create a new DNS record",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		api, err := getCloudflareClient()
+		logPath := viper.GetString("log_path")
+		debug := viper.GetBool("debug")
+		logger, logFile := NewLogger(logPath, debug)
+		if logFile != nil {
+			defer logFile.Close()
+		}
+
+		api, err := getCloudflareClient(logger)
 		if err != nil {
 			return err
 		}
@@ -109,7 +123,14 @@ var recordsUpdateCmd = &cobra.Command{
 	Short: "Update an existing DNS record",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		api, err := getCloudflareClient()
+		logPath := viper.GetString("log_path")
+		debug := viper.GetBool("debug")
+		logger, logFile := NewLogger(logPath, debug)
+		if logFile != nil {
+			defer logFile.Close()
+		}
+
+		api, err := getCloudflareClient(logger)
 		if err != nil {
 			return err
 		}
@@ -146,7 +167,14 @@ var recordsDeleteCmd = &cobra.Command{
 	Short: "Delete a DNS record",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		api, err := getCloudflareClient()
+		logPath := viper.GetString("log_path")
+		debug := viper.GetBool("debug")
+		logger, logFile := NewLogger(logPath, debug)
+		if logFile != nil {
+			defer logFile.Close()
+		}
+
+		api, err := getCloudflareClient(logger)
 		if err != nil {
 			return err
 		}
