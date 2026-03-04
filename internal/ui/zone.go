@@ -18,9 +18,9 @@ type ZoneItem struct {
 	Name string
 }
 
-func (i ZoneItem) Title() string       { return i.Name }
-func (i ZoneItem) Description() string { return i.ID }
-func (i ZoneItem) FilterValue() string { return i.Name }
+func (i *ZoneItem) Title() string       { return i.Name }
+func (i *ZoneItem) Description() string { return i.ID }
+func (i *ZoneItem) FilterValue() string { return i.Name }
 
 // FetchZones returns a tea.Cmd that fetches all Cloudflare zones.
 func FetchZones(api *cloudflare.API, logger *log.Logger) tea.Cmd {
@@ -37,7 +37,7 @@ func FetchZones(api *cloudflare.API, logger *log.Logger) tea.Cmd {
 }
 
 // InitialModel returns the initial state of the application.
-func InitialModel(api *cloudflare.API, theme Theme, logger *log.Logger, logFile *os.File) Model {
+func InitialModel(api *cloudflare.API, theme *Theme, logger *log.Logger, logFile *os.File) *Model {
 	// Customize list delegate with theme colors
 	delegate := list.NewDefaultDelegate()
 	delegate.Styles.SelectedTitle = delegate.Styles.SelectedTitle.
@@ -50,7 +50,7 @@ func InitialModel(api *cloudflare.API, theme Theme, logger *log.Logger, logFile 
 	l := list.New([]list.Item{}, delegate, 0, 0)
 	l.Title = "Cloudflare Zones"
 	l.Styles.Title = l.Styles.Title.Background(theme.Primary).Foreground(lipgloss.Color("#1e1e2e"))
-	
+
 	// Apply theme to filter input
 	l.FilterInput.PromptStyle = l.FilterInput.PromptStyle.Foreground(theme.Primary)
 	l.FilterInput.TextStyle = l.FilterInput.TextStyle.Foreground(theme.Secondary)
@@ -59,7 +59,7 @@ func InitialModel(api *cloudflare.API, theme Theme, logger *log.Logger, logFile 
 	r := list.New([]list.Item{}, delegate, 0, 0)
 	r.Title = "DNS Records"
 	r.Styles.Title = r.Styles.Title.Background(theme.Primary).Foreground(lipgloss.Color("#1e1e2e"))
-	
+
 	// Apply theme to filter input
 	r.FilterInput.PromptStyle = r.FilterInput.PromptStyle.Foreground(theme.Primary)
 	r.FilterInput.TextStyle = r.FilterInput.TextStyle.Foreground(theme.Secondary)
@@ -69,10 +69,16 @@ func InitialModel(api *cloudflare.API, theme Theme, logger *log.Logger, logFile 
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(theme.Primary)
 
-	return Model{
+	// Initialize Logger
+	if logger == nil {
+		logger = log.New(os.Stderr)
+		logger.SetLevel(log.FatalLevel)
+	}
+
+	return &Model{
 		State:      LoadingZonesState,
 		CfClient:   api,
-		Theme:      theme,
+		Theme:      *theme,
 		ZoneList:   l,
 		RecordList: r,
 		Spinner:    s,

@@ -15,22 +15,22 @@ type RecordItem struct {
 	DNS cloudflare.DNSRecord
 }
 
-func (i RecordItem) Title() string {
+func (i *RecordItem) Title() string {
 	// Put the name first so visual filtering highlights (underlining) align correctly.
 	// We append the type at the end in brackets.
 	return fmt.Sprintf("%s [%s]", i.DNS.Name, i.DNS.Type)
 }
-func (i RecordItem) Description() string {
+func (i *RecordItem) Description() string {
 	proxied := "No"
 	if i.DNS.Proxied != nil && *i.DNS.Proxied {
 		proxied = "Yes"
 	}
 	return fmt.Sprintf("Content: %s | Proxied: %s", i.DNS.Content, proxied)
 }
-func (i RecordItem) FilterValue() string { return i.DNS.Name }
+func (i *RecordItem) FilterValue() string { return i.DNS.Name }
 
 // NewRecordForm initializes a form for a DNS record.
-func NewRecordForm(r *cloudflare.DNSRecord, theme Theme) RecordForm {
+func NewRecordForm(r *cloudflare.DNSRecord, theme *Theme) RecordForm {
 	var f RecordForm
 	f.Inputs = make([]textinput.Model, 3)
 
@@ -110,7 +110,7 @@ func SaveRecord(api *cloudflare.API, zoneID string, f RecordForm, logger *log.Lo
 }
 
 // DeleteRecord returns a tea.Cmd that deletes a DNS record.
-func DeleteRecord(api *cloudflare.API, zoneID string, recordID string, logger *log.Logger) tea.Cmd {
+func DeleteRecord(api *cloudflare.API, zoneID, recordID string, logger *log.Logger) tea.Cmd {
 	return func() tea.Msg {
 		logger.Debug("Initiating DeleteDNSRecord API call", "zoneID", zoneID, "recordID", recordID)
 		rc := cloudflare.ZoneIdentifier(zoneID)

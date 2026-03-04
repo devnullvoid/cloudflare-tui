@@ -8,15 +8,15 @@ import (
 )
 
 func TestUpdate(t *testing.T) {
-	m := ui.InitialModel(nil, ui.DefaultTheme, nil, nil)
+	m := ui.InitialModel(nil, &ui.DefaultTheme, nil, nil)
 
 	// Test case: FetchedZonesMsg should transition to ZoneListState
 	zones := []cloudflare.Zone{
 		{ID: "123", Name: "example.com"},
 	}
 	newModel, _ := m.Update(ui.FetchedZonesMsg(zones))
-	
-	updatedModel := newModel.(ui.Model)
+
+	updatedModel := newModel.(*ui.Model)
 	if updatedModel.State != ui.ZoneListState {
 		t.Errorf("Expected state to be ZoneListState, got %v", updatedModel.State)
 	}
@@ -28,7 +28,7 @@ func TestUpdate(t *testing.T) {
 
 func TestNewRecordForm(t *testing.T) {
 	// Test creating a new form from scratch
-	form := ui.NewRecordForm(nil, ui.DefaultTheme)
+	form := ui.NewRecordForm(nil, &ui.DefaultTheme)
 	if form.ID != "" {
 		t.Errorf("Expected empty ID for new form, got %s", form.ID)
 	}
@@ -45,7 +45,7 @@ func TestNewRecordForm(t *testing.T) {
 		Content: "1.2.3.4",
 		Proxied: &proxied,
 	}
-	form = ui.NewRecordForm(record, ui.DefaultTheme)
+	form = ui.NewRecordForm(record, &ui.DefaultTheme)
 	if form.ID != "rec123" {
 		t.Errorf("Expected ID rec123, got %s", form.ID)
 	}

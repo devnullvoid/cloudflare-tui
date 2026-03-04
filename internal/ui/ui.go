@@ -11,20 +11,20 @@ import (
 
 const helpHeight = 2
 
-func (m Model) Init() tea.Cmd {
+func (m *Model) Init() tea.Cmd {
 	return tea.Batch(
 		FetchZones(m.CfClient, m.Logger),
 		m.Spinner.Tick,
 	)
 }
 
-func (m Model) Close() {
+func (m *Model) Close() {
 	if m.LogFile != nil {
-		m.LogFile.Close()
+		_ = m.LogFile.Close()
 	}
 }
 
-func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
 
@@ -34,7 +34,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Err = nil
 			return m, nil
 		}
-		
+
 		// Handle Ctrl+C globally
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
@@ -74,8 +74,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case FetchedZonesMsg:
 		m.Logger.Info("Fetched zones", "count", len(msg))
 		items := make([]list.Item, len(msg))
-		for i, z := range msg {
-			items[i] = ZoneItem{ID: z.ID, Name: z.Name}
+		for i := range msg {
+			items[i] = &ZoneItem{ID: msg[i].ID, Name: msg[i].Name}
 		}
 		m.ZoneList.SetItems(items)
 		m.State = ZoneListState
@@ -84,8 +84,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case FetchedRecordsMsg:
 		m.Logger.Info("Fetched records", "count", len(msg), "zoneID", m.SelectedID)
 		items := make([]list.Item, len(msg))
-		for i, r := range msg {
-			items[i] = RecordItem{DNS: r}
+		for i := range msg {
+			items[i] = &RecordItem{DNS: msg[i]}
 		}
 		m.RecordList.SetItems(items)
 		m.State = RecordListState
@@ -108,6 +108,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.WindowSizeMsg:
 		h, v := DocStyle.GetFrameSize()
+		// Reduce height by helpHeight to avoid layout issues/clipping
 		m.ZoneList.SetSize(msg.Width-h, msg.Height-v-helpHeight)
 		m.RecordList.SetSize(msg.Width-h, msg.Height-v-helpHeight)
 	}
@@ -121,7 +122,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ZoneList, cmd = m.ZoneList.Update(msg)
 		cmds = append(cmds, cmd)
 		if msg, ok := msg.(tea.KeyMsg); ok && msg.String() == "enter" {
-			if i, ok := m.ZoneList.SelectedItem().(ZoneItem); ok {
+			if i, ok := m.ZoneList.SelectedItem().(*ZoneItem); ok {
 				m.SelectedID = i.ID
 				m.State = LoadingRecordsState
 				m.RecordList.Title = "DNS Records: " + i.Name
@@ -138,20 +139,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case "a":
 				m.Logger.Debug("Opening add record form")
-				m.Form = NewRecordForm(nil, m.Theme)
+				m.Form = NewRecordForm(nil, &m.Theme)
 				m.OldRecord = nil
 				m.State = EditingRecordState
 				return m, nil
 			case "enter":
-				if i, ok := m.RecordList.SelectedItem().(RecordItem); ok {
+				if i, ok := m.RecordList.SelectedItem().(*RecordItem); ok {
 					m.Logger.Debug("Opening edit record form", "id", i.DNS.ID)
-					m.Form = NewRecordForm(&i.DNS, m.Theme)
+					m.Form = NewRecordForm(&i.DNS, &m.Theme)
 					m.OldRecord = &i.DNS
 					m.State = EditingRecordState
 					return m, nil
 				}
 			case "d":
-				if i, ok := m.RecordList.SelectedItem().(RecordItem); ok {
+				if i, ok := m.RecordList.SelectedItem().(*RecordItem); ok {
 					m.PendingDeleteID = i.DNS.ID
 					m.PendingDeleteName = i.DNS.Name
 					m.State = ConfirmingDeleteState
@@ -241,7 +242,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m Model) View() string {
+func (m *Model) View() string {
 	errStyle := lipgloss.NewStyle().Foreground(m.Theme.Error).Bold(true)
 	focusedStyle := lipgloss.NewStyle().Foreground(m.Theme.Primary)
 	confirmStyle := lipgloss.NewStyle().Foreground(m.Theme.Warning).Bold(true)
@@ -268,11 +269,7 @@ func (m Model) View() string {
 		return DocStyle.Render(view + "\n" + help)
 	case EditingRecordState:
 		var b strings.Builder
-		title := "Adding DNS Record"
-		if m.Form.ID != "" {
-			title = "Editing DNS Record"
-		}
-		b.WriteString(confirmStyle.Render(title) + "\n\n")
+		fmt.Fprintf(&b, "%s\n\n", confirmStyle.Render("Editing DNS Record"))
 
 		for i := range m.Form.Inputs {
 			b.WriteString(m.Form.Inputs[i].View())
@@ -285,18 +282,18 @@ func (m Model) View() string {
 		if m.Form.Proxied {
 			proxiedStr = "[x] Proxied"
 		}
-		
+
 		if m.Form.Focused == 3 {
-			b.WriteString("\n\n" + focusedStyle.Render(proxiedStr))
+			fmt.Fprintf(&b, "\n\n%s", focusedStyle.Render(proxiedStr))
 		} else {
-			b.WriteString("\n\n" + proxiedStr)
+			fmt.Fprintf(&b, "\n\n%s", proxiedStr)
 		}
 
 		saveStr := "Save"
 		if m.Form.Focused == 4 {
-			b.WriteString("\n\n" + focusedStyle.Render("["+saveStr+"]"))
+			fmt.Fprintf(&b, "\n\n%s", focusedStyle.Render("["+saveStr+"]"))
 		} else {
-			b.WriteString("\n\n[" + saveStr + "]")
+			fmt.Fprintf(&b, "\n\n[%s]", saveStr)
 		}
 
 		b.WriteString("\n\n(esc) cancel")
@@ -305,36 +302,42 @@ func (m Model) View() string {
 
 	case ConfirmingSaveState:
 		var b strings.Builder
-		b.WriteString(confirmStyle.Render("Review Changes") + "\n\n")
-		
+		fmt.Fprintf(&b, "%s\n\n", confirmStyle.Render("Review Changes"))
+
 		if m.OldRecord != nil {
 			// Change View
-			b.WriteString(fmt.Sprintf("Type:    %s -> %s\n", diffOld.Render(m.OldRecord.Type), diffNew.Render(m.Form.Inputs[0].Value())))
-			b.WriteString(fmt.Sprintf("Name:    %s -> %s\n", diffOld.Render(m.OldRecord.Name), diffNew.Render(m.Form.Inputs[1].Value())))
-			b.WriteString(fmt.Sprintf("Content: %s -> %s\n", diffOld.Render(m.OldRecord.Content), diffNew.Render(m.Form.Inputs[2].Value())))
-			
+			fmt.Fprintf(&b, "Type:    %s -> %s\n", diffOld.Render(m.OldRecord.Type), diffNew.Render(m.Form.Inputs[0].Value()))
+			fmt.Fprintf(&b, "Name:    %s -> %s\n", diffOld.Render(m.OldRecord.Name), diffNew.Render(m.Form.Inputs[1].Value()))
+			fmt.Fprintf(&b, "Content: %s -> %s\n", diffOld.Render(m.OldRecord.Content), diffNew.Render(m.Form.Inputs[2].Value()))
+
 			oldProxied := "No"
-			if m.OldRecord.Proxied != nil && *m.OldRecord.Proxied { oldProxied = "Yes" }
+			if m.OldRecord.Proxied != nil && *m.OldRecord.Proxied {
+				oldProxied = "Yes"
+			}
 			newProxied := "No"
-			if m.Form.Proxied { newProxied = "Yes" }
-			b.WriteString(fmt.Sprintf("Proxied: %s -> %s\n", diffOld.Render(oldProxied), diffNew.Render(newProxied)))
+			if m.Form.Proxied {
+				newProxied = "Yes"
+			}
+			fmt.Fprintf(&b, "Proxied: %s -> %s\n", diffOld.Render(oldProxied), diffNew.Render(newProxied))
 		} else {
 			// New Record View
-			b.WriteString(fmt.Sprintf("Type:    %s\n", diffNew.Render(m.Form.Inputs[0].Value())))
-			b.WriteString(fmt.Sprintf("Name:    %s\n", diffNew.Render(m.Form.Inputs[1].Value())))
-			b.WriteString(fmt.Sprintf("Content: %s\n", diffNew.Render(m.Form.Inputs[2].Value())))
+			fmt.Fprintf(&b, "Type:    %s\n", diffNew.Render(m.Form.Inputs[0].Value()))
+			fmt.Fprintf(&b, "Name:    %s\n", diffNew.Render(m.Form.Inputs[1].Value()))
+			fmt.Fprintf(&b, "Content: %s\n", diffNew.Render(m.Form.Inputs[2].Value()))
 			proxied := "No"
-			if m.Form.Proxied { proxied = "Yes" }
-			b.WriteString(fmt.Sprintf("Proxied: %s\n", diffNew.Render(proxied)))
+			if m.Form.Proxied {
+				proxied = "Yes"
+			}
+			fmt.Fprintf(&b, "Proxied: %s\n", diffNew.Render(proxied))
 		}
 
-		b.WriteString("\n" + confirmStyle.Render("Confirm save? (y/n)"))
+		fmt.Fprintf(&b, "\n%s", confirmStyle.Render("Confirm save? (y/n)"))
 		return DocStyle.Render(b.String())
 
 	case ConfirmingDeleteState:
 		var b strings.Builder
-		b.WriteString(confirmStyle.Render("Confirm Deletion") + "\n\n")
-		b.WriteString(fmt.Sprintf("Record: %s\nID:     %s\n\n", m.PendingDeleteName, m.PendingDeleteID))
+		fmt.Fprintf(&b, "%s\n\n", confirmStyle.Render("Confirm Deletion"))
+		fmt.Fprintf(&b, "Record: %s\nID:     %s\n\n", m.PendingDeleteName, m.PendingDeleteID)
 		b.WriteString(errStyle.Render("Are you sure you want to delete this record? (y/n)"))
 		return DocStyle.Render(b.String())
 

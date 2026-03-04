@@ -21,7 +21,7 @@ var zonesListCmd = &cobra.Command{
 		debug := viper.GetBool("debug")
 		logger, logFile := NewLogger(logPath, debug)
 		if logFile != nil {
-			defer logFile.Close()
+			defer func() { _ = logFile.Close() }()
 		}
 
 		api, err := getCloudflareClient(logger)
@@ -36,12 +36,12 @@ var zonesListCmd = &cobra.Command{
 
 		headers := []string{"ID", "Name", "Status", "Paused"}
 		rows := make([][]string, len(zones))
-		for i, z := range zones {
+		for i := range zones {
 			rows[i] = []string{
-				z.ID,
-				z.Name,
-				z.Status,
-				fmt.Sprintf("%v", z.Paused),
+				zones[i].ID,
+				zones[i].Name,
+				zones[i].Status,
+				fmt.Sprintf("%v", zones[i].Paused),
 			}
 		}
 

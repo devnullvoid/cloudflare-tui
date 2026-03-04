@@ -105,20 +105,20 @@ var (
 
 // Model represents the application state.
 type Model struct {
-	State      SessionState
-	CfClient   *cloudflare.API
-	Theme      Theme
-	
+	State    SessionState
+	CfClient *cloudflare.API
+	Theme    Theme
+
 	ZoneList   list.Model
 	RecordList list.Model
 	Form       RecordForm
 	Spinner    spinner.Model
 	Logger     *log.Logger
 	LogFile    *os.File
-	
+
 	Err        error
 	SelectedID string
-	
+
 	// Confirmation info
 	OldRecord         *cloudflare.DNSRecord
 	PendingDeleteID   string

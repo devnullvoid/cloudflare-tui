@@ -51,13 +51,16 @@ func NewLogger(logPath string, debug bool) (*log.Logger, *os.File) {
 		return log.New(os.Stderr), nil
 	}
 
-	_ = os.MkdirAll(filepath.Dir(logPath), 0755)
-	f, _ := os.OpenFile(logPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
-	
+	_ = os.MkdirAll(filepath.Dir(logPath), 0o755)
+	f, err := os.OpenFile(logPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o644)
+	if err != nil {
+		return log.New(os.Stderr), nil
+	}
+
 	logger := log.New(f)
 	logger.SetReportTimestamp(true)
 	logger.SetTimeFormat("[2006-01-02 15:04:05]")
-	
+
 	styles := log.DefaultStyles()
 	levelStyle := func(level string) lipgloss.Style {
 		return lipgloss.NewStyle().SetString("[" + level + "]")
@@ -85,7 +88,7 @@ func getCloudflareClient(logger *log.Logger) (*cloudflare.API, error) {
 	}
 
 	opts := []cloudflare.Option{}
-	
+
 	// If debugging is active, wrap the HTTP client to log raw requests/responses
 	if logger != nil && logger.GetLevel() == log.DebugLevel {
 		httpClient := &http.Client{
@@ -138,8 +141,8 @@ func CompleteZoneNames(cmd *cobra.Command, args []string, toComplete string) ([]
 	}
 
 	var names []string
-	for _, z := range zones {
-		names = append(names, z.Name)
+	for i := range zones {
+		names = append(names, zones[i].Name)
 	}
 
 	return names, cobra.ShellCompDirectiveNoFileComp
@@ -165,7 +168,7 @@ func printOutput(data interface{}, format string, tableHeaders []string, tableRo
 			fmt.Println("No data to display.")
 			return nil
 		}
-		
+
 		theme := getTheme()
 		t := table.New().
 			Border(lipgloss.NormalBorder()).

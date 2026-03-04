@@ -14,7 +14,7 @@ var recordsCmd = &cobra.Command{
 	Short: "Manage DNS Records for a zone",
 }
 
-func getRecordRow(r cloudflare.DNSRecord) []string {
+func getRecordRow(r *cloudflare.DNSRecord) []string {
 	proxied := "No"
 	if r.Proxied != nil && *r.Proxied {
 		proxied = "Yes"
@@ -40,7 +40,7 @@ var recordsListCmd = &cobra.Command{
 		debug := viper.GetBool("debug")
 		logger, logFile := NewLogger(logPath, debug)
 		if logFile != nil {
-			defer logFile.Close()
+			defer func() { _ = logFile.Close() }()
 		}
 
 		api, err := getCloudflareClient(logger)
@@ -60,8 +60,8 @@ var recordsListCmd = &cobra.Command{
 		}
 
 		rows := make([][]string, len(records))
-		for i, r := range records {
-			rows[i] = getRecordRow(r)
+		for i := range records {
+			rows[i] = getRecordRow(&records[i])
 		}
 
 		format := viper.GetString("format")
@@ -85,7 +85,7 @@ var recordsCreateCmd = &cobra.Command{
 		debug := viper.GetBool("debug")
 		logger, logFile := NewLogger(logPath, debug)
 		if logFile != nil {
-			defer logFile.Close()
+			defer func() { _ = logFile.Close() }()
 		}
 
 		api, err := getCloudflareClient(logger)
@@ -112,7 +112,7 @@ var recordsCreateCmd = &cobra.Command{
 			return fmt.Errorf("failed to create record: %w", err)
 		}
 
-		rows := [][]string{getRecordRow(rec)}
+		rows := [][]string{getRecordRow(&rec)}
 		format := viper.GetString("format")
 		return printOutput(rec, format, recordHeaders, rows)
 	},
@@ -127,7 +127,7 @@ var recordsUpdateCmd = &cobra.Command{
 		debug := viper.GetBool("debug")
 		logger, logFile := NewLogger(logPath, debug)
 		if logFile != nil {
-			defer logFile.Close()
+			defer func() { _ = logFile.Close() }()
 		}
 
 		api, err := getCloudflareClient(logger)
@@ -156,7 +156,7 @@ var recordsUpdateCmd = &cobra.Command{
 			return fmt.Errorf("failed to update record: %w", err)
 		}
 
-		rows := [][]string{getRecordRow(rec)}
+		rows := [][]string{getRecordRow(&rec)}
 		format := viper.GetString("format")
 		return printOutput(rec, format, recordHeaders, rows)
 	},
@@ -171,7 +171,7 @@ var recordsDeleteCmd = &cobra.Command{
 		debug := viper.GetBool("debug")
 		logger, logFile := NewLogger(logPath, debug)
 		if logFile != nil {
-			defer logFile.Close()
+			defer func() { _ = logFile.Close() }()
 		}
 
 		api, err := getCloudflareClient(logger)
@@ -202,15 +202,15 @@ func init() {
 	recordsCreateCmd.Flags().StringVarP(&recordName, "name", "n", "", "DNS record name")
 	recordsCreateCmd.Flags().StringVarP(&recordContent, "content", "c", "", "DNS record content")
 	recordsCreateCmd.Flags().BoolVarP(&recordProxied, "proxied", "p", false, "Whether the record is proxied through Cloudflare")
-	recordsCreateCmd.MarkFlagRequired("name")
-	recordsCreateCmd.MarkFlagRequired("content")
+	_ = recordsCreateCmd.MarkFlagRequired("name")
+	_ = recordsCreateCmd.MarkFlagRequired("content")
 
 	recordsUpdateCmd.Flags().StringVarP(&recordType, "type", "t", "A", "DNS record type (A, CNAME, etc.)")
 	recordsUpdateCmd.Flags().StringVarP(&recordName, "name", "n", "", "DNS record name")
 	recordsUpdateCmd.Flags().StringVarP(&recordContent, "content", "c", "", "DNS record content")
 	recordsUpdateCmd.Flags().BoolVarP(&recordProxied, "proxied", "p", false, "Whether the record is proxied through Cloudflare")
-	recordsUpdateCmd.MarkFlagRequired("name")
-	recordsUpdateCmd.MarkFlagRequired("content")
+	_ = recordsUpdateCmd.MarkFlagRequired("name")
+	_ = recordsUpdateCmd.MarkFlagRequired("content")
 
 	recordsCmd.AddCommand(recordsListCmd)
 	recordsCmd.AddCommand(recordsCreateCmd)

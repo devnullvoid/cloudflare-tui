@@ -22,6 +22,7 @@ You can also use the CLI commands to script and output data in structured format
 	},
 }
 
+// Execute adds all child commands to the root command and sets flags appropriately.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -36,10 +37,14 @@ func init() {
 	defaultLogPath := ""
 	stateDir := os.Getenv("XDG_STATE_HOME")
 	if stateDir == "" {
-		home, _ := os.UserHomeDir()
-		stateDir = filepath.Join(home, ".local", "state")
+		home, err := os.UserHomeDir()
+		if err == nil {
+			stateDir = filepath.Join(home, ".local", "state")
+		}
 	}
-	defaultLogPath = filepath.Join(stateDir, "cftui", "cftui.log")
+	if stateDir != "" {
+		defaultLogPath = filepath.Join(stateDir, "cftui", "cftui.log")
+	}
 
 	// Global flags
 	rootCmd.PersistentFlags().StringP("format", "f", "table", "Output format (table, json, yaml)")
@@ -47,27 +52,28 @@ func init() {
 	rootCmd.PersistentFlags().String("log", defaultLogPath, "Path to log file")
 	rootCmd.PersistentFlags().Bool("debug", false, "Enable debug logging")
 
-	viper.BindPFlag("format", rootCmd.PersistentFlags().Lookup("format"))
-	viper.BindPFlag("theme", rootCmd.PersistentFlags().Lookup("theme"))
-	viper.BindPFlag("log_path", rootCmd.PersistentFlags().Lookup("log"))
-	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
+	_ = viper.BindPFlag("format", rootCmd.PersistentFlags().Lookup("format"))
+	_ = viper.BindPFlag("theme", rootCmd.PersistentFlags().Lookup("theme"))
+	_ = viper.BindPFlag("log_path", rootCmd.PersistentFlags().Lookup("log"))
+	_ = viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
 }
 
 func initConfig() {
 	viper.AutomaticEnv()
 	viper.SetEnvPrefix("CFTUI")
-	
+
 	// Map environment variables (Prefix: CFTUI_)
-	viper.BindEnv("api_token", "CLOUDFLARE_API_TOKEN") // Keep this one as is for convention
-	viper.BindEnv("theme", "CFTUI_THEME")
-	viper.BindEnv("log_path", "CFTUI_LOG")
-	viper.BindEnv("debug", "CFTUI_DEBUG")
+	_ = viper.BindEnv("api_token", "CLOUDFLARE_API_TOKEN") // Keep this one as is for convention
+	_ = viper.BindEnv("theme", "CFTUI_THEME")
+	_ = viper.BindEnv("log_path", "CFTUI_LOG")
+	_ = viper.BindEnv("debug", "CFTUI_DEBUG")
 }
 
-func getTheme() ui.Theme {
+// getTheme returns the selected theme based on CLI flags or viper config.
+func getTheme() *ui.Theme {
 	name := viper.GetString("theme")
 	if theme, ok := ui.AvailableThemes[name]; ok {
-		return theme
+		return &theme
 	}
-	return ui.DefaultTheme
+	return &ui.DefaultTheme
 }

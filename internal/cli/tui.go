@@ -11,6 +11,13 @@ import (
 )
 
 func runTUI() {
+	if err := executeTUI(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func executeTUI() error {
 	theme := getTheme()
 	logPath := viper.GetString("log_path")
 	debug := viper.GetBool("debug")
@@ -18,8 +25,10 @@ func runTUI() {
 
 	api, err := getCloudflareClient(logger)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		if logFile != nil {
+			_ = logFile.Close()
+		}
+		return err
 	}
 
 	m := ui.InitialModel(api, theme, logger, logFile)
@@ -27,9 +36,9 @@ func runTUI() {
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
-		fmt.Printf("Alas, there's been an error: %v", err)
-		os.Exit(1)
+		return err
 	}
+	return nil
 }
 
 var tuiCmd = &cobra.Command{
