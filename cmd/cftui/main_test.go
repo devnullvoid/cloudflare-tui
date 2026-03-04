@@ -28,7 +28,7 @@ func TestUpdate(t *testing.T) {
 
 func TestNewRecordForm(t *testing.T) {
 	// Test creating a new form from scratch
-	form := ui.NewRecordForm(nil)
+	form := ui.NewRecordForm(nil, ui.DefaultTheme)
 	if form.ID != "" {
 		t.Errorf("Expected empty ID for new form, got %s", form.ID)
 	}
@@ -45,7 +45,7 @@ func TestNewRecordForm(t *testing.T) {
 		Content: "1.2.3.4",
 		Proxied: &proxied,
 	}
-	form = ui.NewRecordForm(record)
+	form = ui.NewRecordForm(record, ui.DefaultTheme)
 	if form.ID != "rec123" {
 		t.Errorf("Expected ID rec123, got %s", form.ID)
 	}

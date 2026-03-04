@@ -27,18 +27,20 @@ func (i RecordItem) Description() string {
 func (i RecordItem) FilterValue() string { return i.DNS.Name }
 
 // NewRecordForm initializes a form for a DNS record.
-func NewRecordForm(r *cloudflare.DNSRecord) RecordForm {
+func NewRecordForm(r *cloudflare.DNSRecord, theme Theme) RecordForm {
 	var f RecordForm
 	f.Inputs = make([]textinput.Model, 3)
 
-	f.Inputs[0] = textinput.New()
+	for i := range f.Inputs {
+		f.Inputs[i] = textinput.New()
+		f.Inputs[i].PromptStyle = f.Inputs[i].PromptStyle.Foreground(theme.Primary)
+		f.Inputs[i].TextStyle = f.Inputs[i].TextStyle.Foreground(theme.Secondary)
+	}
+
 	f.Inputs[0].Placeholder = "Type (A, CNAME, etc.)"
 	f.Inputs[0].Focus()
 
-	f.Inputs[1] = textinput.New()
 	f.Inputs[1].Placeholder = "Name"
-
-	f.Inputs[2] = textinput.New()
 	f.Inputs[2].Placeholder = "Content"
 
 	if r != nil {

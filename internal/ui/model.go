@@ -30,13 +30,13 @@ type Theme struct {
 	Inactive  lipgloss.TerminalColor
 }
 
-// DefaultTheme provides a standard "Charm" inspired palette.
+// DefaultTheme provides a standard Catppuccin Mocha inspired palette.
 var DefaultTheme = Theme{
-	Primary:   lipgloss.Color("205"), // Pink
-	Secondary: lipgloss.Color("86"),  // Aqua
-	Error:     lipgloss.Color("9"),   // Red
-	Warning:   lipgloss.Color("3"),   // Yellow
-	Inactive:  lipgloss.Color("241"), // Gray
+	Primary:   lipgloss.Color("#fab387"), // Peach
+	Secondary: lipgloss.Color("#89dceb"), // Sky
+	Error:     lipgloss.Color("#f38ba8"), // Red
+	Warning:   lipgloss.Color("#f9e2af"), // Yellow
+	Inactive:  lipgloss.Color("#585b70"), // Surface 2
 }
 
 // Styles are derived from the theme.

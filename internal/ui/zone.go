@@ -33,20 +33,33 @@ func FetchZones(api *cloudflare.API) tea.Cmd {
 
 // InitialModel returns the initial state of the application.
 func InitialModel(api *cloudflare.API) Model {
-	l := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
-	l.Title = "Cloudflare Zones"
+	theme := DefaultTheme
 
-	r := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
+	// Customize list delegate with theme colors
+	delegate := list.NewDefaultDelegate()
+	delegate.Styles.SelectedTitle = delegate.Styles.SelectedTitle.
+		Foreground(theme.Primary).
+		BorderLeftForeground(theme.Primary)
+	delegate.Styles.SelectedDesc = delegate.Styles.SelectedDesc.
+		Foreground(theme.Secondary).
+		BorderLeftForeground(theme.Primary)
+
+	l := list.New([]list.Item{}, delegate, 0, 0)
+	l.Title = "Cloudflare Zones"
+	l.Styles.Title = l.Styles.Title.Background(theme.Primary).Foreground(lipgloss.Color("#1e1e2e"))
+
+	r := list.New([]list.Item{}, delegate, 0, 0)
 	r.Title = "DNS Records"
+	r.Styles.Title = r.Styles.Title.Background(theme.Primary).Foreground(lipgloss.Color("#1e1e2e"))
 
 	s := spinner.New()
 	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(DefaultTheme.Primary)
+	s.Style = lipgloss.NewStyle().Foreground(theme.Primary)
 
 	return Model{
 		State:      LoadingZonesState,
 		CfClient:   api,
-		Theme:      DefaultTheme,
+		Theme:      theme,
 		ZoneList:   l,
 		RecordList: r,
 		Spinner:    s,

@@ -51,7 +51,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case RecordSavedMsg, RecordDeletedMsg:
 		m.State = LoadingRecordsState
-		return m, FetchRecords(m.CfClient, m.SelectedID)
+		return m, tea.Batch(FetchRecords(m.CfClient, m.SelectedID), m.Spinner.Tick)
 
 	case ErrorMsg:
 		m.Err = msg
@@ -63,15 +63,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.RecordList.SetSize(msg.Width-h, msg.Height-v)
 	}
 
-	// Always update spinner if we are in a loading state
-	if m.State == LoadingZonesState || m.State == LoadingRecordsState {
-		m.Spinner, cmd = m.Spinner.Update(msg)
-		cmds = append(cmds, cmd)
-	}
+	// Update the spinner
+	m.Spinner, cmd = m.Spinner.Update(msg)
+	cmds = append(cmds, cmd)
 
 	switch m.State {
 	case ZoneListState:
 		m.ZoneList, cmd = m.ZoneList.Update(msg)
+		cmds = append(cmds, cmd)
 		if msg, ok := msg.(tea.KeyMsg); ok && msg.String() == "enter" {
 			if i, ok := m.ZoneList.SelectedItem().(ZoneItem); ok {
 				m.SelectedID = i.ID
@@ -80,7 +79,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Batch(FetchRecords(m.CfClient, i.ID), m.Spinner.Tick)
 			}
 		}
-		return m, cmd
 
 	case RecordListState:
 		if msg, ok := msg.(tea.KeyMsg); ok {
@@ -89,13 +87,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.State = ZoneListState
 				return m, nil
 			case "a":
-				m.Form = NewRecordForm(nil)
+				m.Form = NewRecordForm(nil, m.Theme)
 				m.OldRecord = nil
 				m.State = EditingRecordState
 				return m, nil
 			case "enter":
 				if i, ok := m.RecordList.SelectedItem().(RecordItem); ok {
-					m.Form = NewRecordForm(&i.DNS)
+					m.Form = NewRecordForm(&i.DNS, m.Theme)
 					m.OldRecord = &i.DNS
 					m.State = EditingRecordState
 					return m, nil
@@ -110,7 +108,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		m.RecordList, cmd = m.RecordList.Update(msg)
-		return m, cmd
+		cmds = append(cmds, cmd)
 
 	case EditingRecordState:
 		if msg, ok := msg.(tea.KeyMsg); ok {
@@ -163,7 +161,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Form.Inputs[i], cmd = m.Form.Inputs[i].Update(msg)
 			cmds = append(cmds, cmd)
 		}
-		return m, tea.Batch(cmds...)
 
 	case ConfirmingSaveState:
 		if msg, ok := msg.(tea.KeyMsg); ok {
@@ -188,7 +185,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	return m, nil
+	return m, tea.Batch(cmds...)
 }
 
 func (m Model) View() string {
