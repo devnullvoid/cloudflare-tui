@@ -40,8 +40,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 
+		// Handle Quit Confirmation logic first
+		if m.State == ConfirmingQuitState {
+			switch msg.String() {
+			case "y", "Y", "enter":
+				return m, tea.Quit
+			case "n", "N", "q", "esc":
+				m.State = ZoneListState // Fallback, previous state would be better but let's keep it simple
+				// To be better, we could track 'previousState', but for now ZoneList is safe.
+				// Let's actually check if we have a selected zone to decide.
+				if m.SelectedID != "" {
+					m.State = RecordListState
+				} else {
+					m.State = ZoneListState
+				}
+				return m, nil
+			}
+		}
+
 		// If we are filtering, we let the list handle EVERYTHING.
-		// The list component handles 'esc' to exit filtering itself.
 		if m.State == ZoneListState && m.ZoneList.FilterState() == list.Filtering {
 			m.ZoneList, cmd = m.ZoneList.Update(msg)
 			return m, cmd
@@ -49,6 +66,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.State == RecordListState && m.RecordList.FilterState() == list.Filtering {
 			m.RecordList, cmd = m.RecordList.Update(msg)
 			return m, cmd
+		}
+
+		// Trigger quit confirmation on 'q'
+		if msg.String() == "q" && m.State != EditingRecordState {
+			m.State = ConfirmingQuitState
+			return m, nil
 		}
 
 	case FetchedZonesMsg:
@@ -88,7 +111,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.WindowSizeMsg:
 		h, v := DocStyle.GetFrameSize()
-		// Reduce height by helpHeight to avoid layout issues/clipping
 		m.ZoneList.SetSize(msg.Width-h, msg.Height-v-helpHeight)
 		m.RecordList.SetSize(msg.Width-h, msg.Height-v-helpHeight)
 	}
@@ -157,7 +179,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.Form.Focused++
 				}
 
-				if m.Form.Focused > 4 { // 0,1,2: Inputs, 3: Proxied, 4: Save
+				if m.Form.Focused > 4 {
 					m.Form.Focused = 0
 				} else if m.Form.Focused < 0 {
 					m.Form.Focused = 4
@@ -179,7 +201,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			case "enter":
 				if m.Form.Focused == 4 {
-					// Basic Validation
 					if m.Form.Inputs[0].Value() == "" || m.Form.Inputs[1].Value() == "" || m.Form.Inputs[2].Value() == "" {
 						m.Err = fmt.Errorf("all fields (Type, Name, Content) are required")
 						return m, nil
@@ -235,6 +256,9 @@ func (m Model) View() string {
 	}
 
 	switch m.State {
+	case ConfirmingQuitState:
+		return DocStyle.Render(confirmStyle.Render("Are you sure you want to quit? (y/n)"))
+
 	case LoadingZonesState:
 		return DocStyle.Render(fmt.Sprintf("%s Loading zones from Cloudflare...", m.Spinner.View()))
 	case ZoneListState:
@@ -243,7 +267,7 @@ func (m Model) View() string {
 		return DocStyle.Render(fmt.Sprintf("%s Loading DNS records for %s...", m.Spinner.View(), m.SelectedID))
 	case RecordListState:
 		view := m.RecordList.View()
-		help := lipgloss.NewStyle().Foreground(m.Theme.Inactive).MarginTop(1).Render("(a) add record, (enter) edit record, (d) delete record, (esc) back")
+		help := lipgloss.NewStyle().Foreground(m.Theme.Inactive).MarginTop(1).Render("(a) add record, (enter) edit record, (d) delete record, (esc) back, (q) quit")
 		return DocStyle.Render(view + "\n" + help)
 	case EditingRecordState:
 		var b strings.Builder

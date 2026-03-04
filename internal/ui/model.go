@@ -22,6 +22,7 @@ const (
 	EditingRecordState
 	ConfirmingDeleteState
 	ConfirmingSaveState
+	ConfirmingQuitState
 )
 
 // Theme defines the color scheme for the application.
