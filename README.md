@@ -33,13 +33,18 @@ go build ./cmd/cftui
    ```bash
    export CLOUDFLARE_API_TOKEN=your_token_here
    ```
-2. Run the application:
-   ```bash
-   ./cftui
-   ```
 
-### Keybindings
+### Interactive TUI Mode
 
+By default, running `cftui` without arguments launches the interactive interface.
+
+```bash
+./cftui
+# or
+./cftui tui
+```
+
+**Keybindings**
 - **Arrows/Vim (j,k)**: Navigate lists.
 - **Enter**: Select zone / Edit record / Confirm action.
 - **'a'**: Add a new DNS record.
@@ -47,6 +52,30 @@ go build ./cmd/cftui
 - **'esc' / Backspace**: Go back to the previous view.
 - **Tab / Shift+Tab**: Navigate form fields.
 - **Ctrl+C**: Quit.
+
+### Headless CLI Mode
+
+`cftui` also provides powerful CLI commands for scripting and outputting structured data.
+
+**Global Flags**
+- `-f, --format string`: Output format. Options: `json` (default), `yaml`.
+
+**Commands**
+- `cftui help`: Show help text and available commands.
+- `cftui zones list`: List all zones accessible by the token.
+- `cftui records list <zone-id>`: List all records for a zone.
+- `cftui records create <zone-id> --name <name> --content <content> [--type <type>] [--proxied]`: Create a record.
+- `cftui records update <zone-id> <record-id> --name <name> --content <content> [--type <type>] [--proxied]`: Update a record.
+- `cftui records delete <zone-id> <record-id>`: Delete a record.
+
+*Example:*
+```bash
+# List zones in YAML format
+./cftui zones list -f yaml
+
+# Create a new A record
+./cftui records create 023e105f4ecef8ad9ca31a8372d0c353 --type A --name api.example.com --content 192.168.1.1 --proxied
+```
 
 ## License
 
