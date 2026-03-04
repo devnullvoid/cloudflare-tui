@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/cloudflare/cloudflare-go"
@@ -20,18 +22,30 @@ const (
 	zoneListState
 	loadingRecordsState
 	recordListState
+	editingRecordState
 )
 
 // Styles for the UI.
 var (
-	docStyle = lipgloss.NewStyle().Margin(1, 2)
-	errStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
+	docStyle     = lipgloss.NewStyle().Margin(1, 2)
+	errStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
+	focusedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+	noStyle      = lipgloss.NewStyle()
 )
 
 // Message types for async operations.
 type fetchedZonesMsg []cloudflare.Zone
 type fetchedRecordsMsg []cloudflare.DNSRecord
+type recordSavedMsg struct{}
 type errorMsg error
+
+// recordForm manages input fields for adding/editing a record.
+type recordForm struct {
+	id      string
+	inputs  []textinput.Model
+	focused int
+	proxied bool
+}
 
 // zoneItem implements list.Item for the Zone Selection view.
 type zoneItem struct {
@@ -66,36 +80,51 @@ type model struct {
 	cfClient   *cloudflare.API
 	zoneList   list.Model
 	recordList list.Model
+	form       recordForm
 	err        error
 	selectedID string
 }
 
-/*
- * Async Message Passing Explanation:
- * 1. Bubble Tea's `Init()` and `Update()` return a `tea.Cmd`.
- * 2. A `tea.Cmd` is a function that returns a `tea.Msg` (interface{}).
- * 3. These commands are executed concurrently by the Bubble Tea runtime.
- * 4. Once finished, the returned `tea.Msg` is sent back to the `Update()` method.
- * 5. This allows the UI to stay responsive while API calls (like Cloudflare's) 
- *    are being processed in the background.
- */
+// newRecordForm initializes a form for a DNS record.
+func newRecordForm(r *cloudflare.DNSRecord) recordForm {
+	var f recordForm
+	f.inputs = make([]textinput.Model, 3)
+
+	f.inputs[0] = textinput.New()
+	f.inputs[0].Placeholder = "Type (A, CNAME, etc.)"
+	f.inputs[0].Focus()
+
+	f.inputs[1] = textinput.New()
+	f.inputs[1].Placeholder = "Name"
+
+	f.inputs[2] = textinput.New()
+	f.inputs[2].Placeholder = "Content"
+
+	if r != nil {
+		f.id = r.ID
+		f.inputs[0].SetValue(r.Type)
+		f.inputs[1].SetValue(r.Name)
+		f.inputs[2].SetValue(r.Content)
+		if r.Proxied != nil {
+			f.proxied = *r.Proxied
+		}
+	}
+
+	return f
+}
 
 // fetchZones returns a tea.Cmd that fetches all Cloudflare zones.
-// When it completes, it returns either a fetchedZonesMsg or an errorMsg.
 func fetchZones(api *cloudflare.API) tea.Cmd {
 	return func() tea.Msg {
-		// Fetch all zones for the token.
 		zones, err := api.ListZones(context.Background())
 		if err != nil {
 			return errorMsg(err)
 		}
-		// Return the successful response as a message to be handled in Update().
 		return fetchedZonesMsg(zones)
 	}
 }
 
 // fetchRecords returns a tea.Cmd that fetches DNS records for a specific zone.
-// It uses the zone ID and triggers an async update once Cloudflare responds.
 func fetchRecords(api *cloudflare.API, zoneID string) tea.Cmd {
 	return func() tea.Msg {
 		rc := cloudflare.ZoneIdentifier(zoneID)
@@ -103,8 +132,38 @@ func fetchRecords(api *cloudflare.API, zoneID string) tea.Cmd {
 		if err != nil {
 			return errorMsg(err)
 		}
-		// Return the records as a message.
 		return fetchedRecordsMsg(records)
+	}
+}
+
+// saveRecord returns a tea.Cmd that saves (creates or updates) a DNS record.
+func saveRecord(api *cloudflare.API, zoneID string, f recordForm) tea.Cmd {
+	return func() tea.Msg {
+		rc := cloudflare.ZoneIdentifier(zoneID)
+		proxied := f.proxied
+
+		var err error
+		if f.id == "" {
+			_, err = api.CreateDNSRecord(context.Background(), rc, cloudflare.CreateDNSRecordParams{
+				Type:    f.inputs[0].Value(),
+				Name:    f.inputs[1].Value(),
+				Content: f.inputs[2].Value(),
+				Proxied: &proxied,
+			})
+		} else {
+			_, err = api.UpdateDNSRecord(context.Background(), rc, cloudflare.UpdateDNSRecordParams{
+				ID:      f.id,
+				Type:    f.inputs[0].Value(),
+				Name:    f.inputs[1].Value(),
+				Content: f.inputs[2].Value(),
+				Proxied: &proxied,
+			})
+		}
+
+		if err != nil {
+			return errorMsg(err)
+		}
+		return recordSavedMsg{}
 	}
 }
 
@@ -114,11 +173,12 @@ func (m model) Init() tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
+	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "q":
+		case "ctrl+c":
 			return m, tea.Quit
 		}
 
@@ -140,6 +200,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state = recordListState
 		return m, nil
 
+	case recordSavedMsg:
+		m.state = loadingRecordsState
+		return m, fetchRecords(m.cfClient, m.selectedID)
+
 	case errorMsg:
 		m.err = msg
 		return m, nil
@@ -150,7 +214,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.recordList.SetSize(msg.Width-h, msg.Height-v)
 	}
 
-	// Update logic based on current state
 	switch m.state {
 	case zoneListState:
 		m.zoneList, cmd = m.zoneList.Update(msg)
@@ -162,16 +225,95 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, fetchRecords(m.cfClient, i.id)
 			}
 		}
+		return m, cmd
 
 	case recordListState:
+		if msg, ok := msg.(tea.KeyMsg); ok {
+			switch msg.String() {
+			case "esc", "backspace":
+				m.state = zoneListState
+				return m, nil
+			case "a":
+				m.form = newRecordForm(nil)
+				m.state = editingRecordState
+				return m, nil
+			case "enter":
+				if i, ok := m.recordList.SelectedItem().(recordItem); ok {
+					m.form = newRecordForm(&i.dns)
+					m.state = editingRecordState
+					return m, nil
+				}
+			}
+		}
 		m.recordList, cmd = m.recordList.Update(msg)
-		if msg, ok := msg.(tea.KeyMsg); ok && (msg.String() == "esc" || msg.String() == "backspace") {
-			m.state = zoneListState
+		return m, cmd
+
+	case editingRecordState:
+		if msg, ok := msg.(tea.KeyMsg); ok {
+			switch msg.String() {
+			case "esc":
+				m.state = recordListState
+				return m, nil
+			case "tab", "shift+tab", "up", "down":
+				s := msg.String()
+				if s == "up" || s == "shift+tab" {
+					m.form.focused--
+				} else {
+					m.form.focused++
+				}
+
+				if m.form.focused > len(m.form.inputs) {
+					m.form.focused = 0
+				} else if m.form.focused < 0 {
+					m.form.focused = len(m.form.inputs)
+				}
+
+				cmds = make([]tea.Cmd, len(m.form.inputs))
+				for i := 0; i <= len(m.form.inputs)-1; i++ {
+					if i == m.form.focused {
+						cmds[i] = m.form.inputs[i].Focus()
+						continue
+					}
+					m.form.inputs[i].Blur()
+				}
+				return m, tea.Batch(cmds...)
+
+			case "enter":
+				if m.form.focused == len(m.form.inputs) {
+					return m, saveRecord(m.cfClient, m.selectedID, m.form)
+				}
+			case " ":
+				if m.form.focused == len(m.form.inputs)-1 {
+					// This logic is a bit flawed because focused is index based.
+					// Let's adjust: 0: Type, 1: Name, 2: Content, 3: Proxied toggle, 4: Save button
+				}
+			}
+		}
+
+		// Handle proxied toggle specifically
+		if msg, ok := msg.(tea.KeyMsg); ok && msg.String() == " " && m.form.focused == 3 {
+			m.form.proxied = !m.form.proxied
 			return m, nil
 		}
+		
+		// Handle save button specifically
+		if msg, ok := msg.(tea.KeyMsg); ok && msg.String() == "enter" && m.form.focused == 4 {
+			return m, saveRecord(m.cfClient, m.selectedID, m.form)
+		}
+
+		cmd = m.updateInputs(msg)
+		return m, cmd
 	}
 
-	return m, cmd
+	return m, nil
+}
+
+func (m *model) updateInputs(msg tea.Msg) tea.Cmd {
+	cmds := make([]tea.Cmd, len(m.form.inputs))
+	for i := range m.form.inputs {
+		m.form.inputs[i], cmds[i] = m.form.inputs[i].Update(msg)
+	}
+	return tea.Batch(cmds...)
 }
 
 func (m model) View() string {
@@ -187,7 +329,38 @@ func (m model) View() string {
 	case loadingRecordsState:
 		return docStyle.Render(fmt.Sprintf("Loading DNS records for %s...", m.selectedID))
 	case recordListState:
-		return docStyle.Render(m.recordList.View())
+		return docStyle.Render(m.recordList.View() + "\n\n(a) add record, (enter) edit record, (esc) back")
+	case editingRecordState:
+		var b strings.Builder
+
+		for i := range m.form.inputs {
+			b.WriteString(m.form.inputs[i].View())
+			if i < len(m.form.inputs)-1 {
+				b.WriteRune('\n')
+			}
+		}
+
+		proxiedStr := "[ ] Proxied"
+		if m.form.proxied {
+			proxiedStr = "[x] Proxied"
+		}
+		
+		if m.form.focused == 3 {
+			b.WriteString("\n\n" + focusedStyle.Render(proxiedStr))
+		} else {
+			b.WriteString("\n\n" + proxiedStr)
+		}
+
+		saveStr := "Save"
+		if m.form.focused == 4 {
+			b.WriteString("\n\n" + focusedStyle.Render("["+saveStr+"]"))
+		} else {
+			b.WriteString("\n\n[" + saveStr + "]")
+		}
+
+		b.WriteString("\n\n(esc) cancel")
+
+		return docStyle.Render(b.String())
 	default:
 		return "Unknown state"
 	}
