@@ -1,6 +1,6 @@
 # cftui: Cloudflare TUI
 
-> I was tired of logging in to the cloudflare dashboard every time I needed to edit DNS entries, using terraform was overkill. Avoid context switching away from the terminal. Thus: cftui came into being.
+> I got tired of logging in to the Cloudflare dashboard for every DNS edit, and Terraform felt like overkill. I built cftui to make DNS changes fast, without context switching or heavy config/state management.
 
 `cftui` is a fast, terminal-based user interface for managing your Cloudflare DNS records. Built with Go and the [Bubble Tea](https://github.com/charmbracelet/bubbletea) framework.
 
@@ -37,6 +37,7 @@ go build ./cmd/cftui
 ## Usage
 
 1. Set your Cloudflare API token as an environment variable:
+
    ```bash
    export CLOUDFLARE_API_TOKEN=your_token_here
    ```
@@ -52,6 +53,7 @@ By default, running `cftui` without arguments launches the interactive interface
 ```
 
 **Keybindings**
+
 - **Arrows/Vim (j,k)**: Navigate lists.
 - **Enter**: Select zone / Edit record / Confirm action.
 - **'a'**: Add a new DNS record.
@@ -67,18 +69,21 @@ By default, running `cftui` without arguments launches the interactive interface
 `cftui` also provides powerful CLI commands for scripting and outputting structured data.
 
 **Global Flags**
+
 - `-f, --format string`: Output format. Options: `table` (default), `json`, `yaml`.
 - `-t, --theme string` : Color theme. Options: `ansi` (default), `mocha`, `nord`, `dracula`, `rose-pine`, `tokyo-night`, `gruvbox`, `everforest`.
 - `--log string`      : Path to log file (default: `~/.config/cftui/cftui.log` on Linux).
 - `--debug`           : Enable debug logging (verbose).
 
 **Environment Variables**
+
 - `CLOUDFLARE_API_TOKEN`: Your Cloudflare API token (Required).
 - `CFTUI_THEME`: Set the default theme (e.g., `mocha`, `nord`).
 - `CFTUI_LOG`: Set the log file path.
 - `CFTUI_DEBUG`: Set to `true` to enable debug logging.
 
 *Example:*
+
 ```bash
 # List records using domain name
 ./cftui records list example.com
