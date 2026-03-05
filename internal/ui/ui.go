@@ -31,6 +31,8 @@ func (m *Model) updateList(msg tea.Msg) tea.Cmd {
 		m.ZoneList, cmd = m.ZoneList.Update(msg)
 	case RecordListState:
 		m.RecordList, cmd = m.RecordList.Update(msg)
+	case PickingTypeState:
+		m.Form.TypeList, cmd = m.Form.TypeList.Update(msg)
 	}
 	return cmd
 }
@@ -45,13 +47,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Err = nil
 			return m, nil
 		}
-
+		
 		// Handle Ctrl+C globally
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
 
-		// Handle Quit Confirmation logic first
+		// Handle states that ignore standard key processing
 		if m.State == ConfirmingQuitState {
 			switch msg.String() {
 			case "y", "Y", "enter":
@@ -68,7 +70,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// If we are filtering, we let the list handle EVERYTHING.
 		if (m.State == ZoneListState && m.ZoneList.FilterState() == list.Filtering) ||
-			(m.State == RecordListState && m.RecordList.FilterState() == list.Filtering) {
+			(m.State == RecordListState && m.RecordList.FilterState() == list.Filtering) ||
+			(m.State == PickingTypeState && m.Form.TypeList.FilterState() == list.Filtering) {
 			if msg.String() != "esc" {
 				cmd = m.updateList(msg)
 				return m, cmd
@@ -76,7 +79,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Trigger quit confirmation on 'q'
-		if msg.String() == "q" && m.State != EditingRecordState {
+		if msg.String() == "q" && m.State != EditingRecordState && m.State != PickingTypeState {
 			m.State = ConfirmingQuitState
 			return m, nil
 		}
@@ -118,9 +121,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.WindowSizeMsg:
 		h, v := DocStyle.GetFrameSize()
-		// Reduce height by helpHeight to avoid layout issues/clipping
 		m.ZoneList.SetSize(msg.Width-h, msg.Height-v-helpHeight)
 		m.RecordList.SetSize(msg.Width-h, msg.Height-v-helpHeight)
+		m.Form.TypeList.SetSize(msg.Width-h, msg.Height-v-helpHeight)
 	}
 
 	// Update the spinner
@@ -187,10 +190,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.Form.Focused++
 				}
 
-				if m.Form.Focused > 4 {
+				// Total elements: Inputs + Type Trigger + Proxied + Save
+				totalElements := len(m.Form.Inputs) + 3 
+				if m.Form.Focused >= totalElements {
 					m.Form.Focused = 0
 				} else if m.Form.Focused < 0 {
-					m.Form.Focused = 4
+					m.Form.Focused = totalElements - 1
 				}
 
 				for i := range m.Form.Inputs {
@@ -202,18 +207,25 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, tea.Batch(cmds...)
 
-			case " ":
-				if m.Form.Focused == 3 {
-					m.Form.Proxied = !m.Form.Proxied
+			case "enter":
+				// Type Trigger
+				if m.Form.Focused == len(m.Form.Inputs) {
+					m.State = PickingTypeState
 					return m, nil
 				}
-			case "enter":
-				if m.Form.Focused == 4 {
-					if m.Form.Inputs[0].Value() == "" || m.Form.Inputs[1].Value() == "" || m.Form.Inputs[2].Value() == "" {
-						m.Err = fmt.Errorf("all fields (Type, Name, Content) are required")
+				// Save Button
+				if m.Form.Focused == len(m.Form.Inputs)+2 {
+					if m.Form.Inputs[0].Value() == "" || m.Form.Inputs[1].Value() == "" {
+						m.Err = fmt.Errorf("name and content are required")
 						return m, nil
 					}
 					m.State = ConfirmingSaveState
+					return m, nil
+				}
+			case " ":
+				// Proxied Toggle
+				if m.Form.Focused == len(m.Form.Inputs)+1 {
+					m.Form.Proxied = !m.Form.Proxied
 					return m, nil
 				}
 			}
@@ -224,12 +236,31 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, cmd)
 		}
 
+	case PickingTypeState:
+		if msg, ok := msg.(tea.KeyMsg); ok {
+			switch msg.String() {
+			case "esc":
+				m.State = EditingRecordState
+				return m, nil
+			case "enter":
+				if i, ok := m.Form.TypeList.SelectedItem().(typeItem); ok {
+					m.Form.Type = string(i)
+					// Re-initialize inputs to handle field changes (like MX Priority)
+					m.Form.initializeInputs(m.OldRecord, &m.Theme)
+					m.State = EditingRecordState
+					return m, nil
+				}
+			}
+		}
+		cmd = m.updateList(msg)
+		cmds = append(cmds, cmd)
+
 	case ConfirmingSaveState:
 		if msg, ok := msg.(tea.KeyMsg); ok {
 			switch msg.String() {
 			case "y", "Y", "enter":
 				m.Logger.Info("Saving record", "id", m.Form.ID)
-				return m, SaveRecord(m.CfClient, m.SelectedID, m.Form, m.Logger)
+				return m, SaveRecord(m.CfClient, m.SelectedID, &m.Form, m.Logger)
 			case "n", "N", "esc":
 				m.State = EditingRecordState
 				return m, nil
@@ -277,9 +308,25 @@ func (m *Model) View() string {
 		view := m.RecordList.View()
 		help := lipgloss.NewStyle().Foreground(m.Theme.Inactive).MarginTop(1).Render("(a) add record, (enter) edit record, (d) delete record, (esc) back, (q) quit")
 		return DocStyle.Render(view + "\n" + help)
+	
+	case PickingTypeState:
+		return DocStyle.Render(m.Form.TypeList.View())
+
 	case EditingRecordState:
 		var b strings.Builder
-		fmt.Fprintf(&b, "%s\n\n", confirmStyle.Render("Editing DNS Record"))
+		title := "Adding DNS Record"
+		if m.Form.ID != "" {
+			title = "Editing DNS Record"
+		}
+		fmt.Fprintf(&b, "%s\n\n", confirmStyle.Render(title))
+
+		// Render Type Selection Trigger
+		typeStr := fmt.Sprintf("Type: %s (Press Enter to change)", m.Form.Type)
+		if m.Form.Focused == len(m.Form.Inputs) {
+			fmt.Fprintf(&b, "%s\n\n", focusedStyle.Render(typeStr))
+		} else {
+			fmt.Fprintf(&b, "%s\n\n", typeStr)
+		}
 
 		for i := range m.Form.Inputs {
 			b.WriteString(m.Form.Inputs[i].View())
@@ -292,15 +339,15 @@ func (m *Model) View() string {
 		if m.Form.Proxied {
 			proxiedStr = "[x] Proxied"
 		}
-
-		if m.Form.Focused == 3 {
+		
+		if m.Form.Focused == len(m.Form.Inputs)+1 {
 			fmt.Fprintf(&b, "\n\n%s", focusedStyle.Render(proxiedStr))
 		} else {
 			fmt.Fprintf(&b, "\n\n%s", proxiedStr)
 		}
 
 		saveStr := "Save"
-		if m.Form.Focused == 4 {
+		if m.Form.Focused == len(m.Form.Inputs)+2 {
 			fmt.Fprintf(&b, "\n\n%s", focusedStyle.Render("["+saveStr+"]"))
 		} else {
 			fmt.Fprintf(&b, "\n\n[%s]", saveStr)
@@ -313,32 +360,35 @@ func (m *Model) View() string {
 	case ConfirmingSaveState:
 		var b strings.Builder
 		fmt.Fprintf(&b, "%s\n\n", confirmStyle.Render("Review Changes"))
+		
+		// Type Change
+		typeOld := ""
+		if m.OldRecord != nil { typeOld = m.OldRecord.Type }
+		if typeOld != "" && typeOld != m.Form.Type {
+			fmt.Fprintf(&b, "Type:    %s -> %s\n", diffOld.Render(typeOld), diffNew.Render(m.Form.Type))
+		} else {
+			fmt.Fprintf(&b, "Type:    %s\n", m.Form.Type)
+		}
 
 		if m.OldRecord != nil {
 			// Change View
-			fmt.Fprintf(&b, "Type:    %s -> %s\n", diffOld.Render(m.OldRecord.Type), diffNew.Render(m.Form.Inputs[0].Value()))
-			fmt.Fprintf(&b, "Name:    %s -> %s\n", diffOld.Render(m.OldRecord.Name), diffNew.Render(m.Form.Inputs[1].Value()))
-			fmt.Fprintf(&b, "Content: %s -> %s\n", diffOld.Render(m.OldRecord.Content), diffNew.Render(m.Form.Inputs[2].Value()))
-
+			fmt.Fprintf(&b, "Name:    %s -> %s\n", diffOld.Render(m.OldRecord.Name), diffNew.Render(m.Form.Inputs[0].Value()))
+			fmt.Fprintf(&b, "Content: %s -> %s\n", diffOld.Render(m.OldRecord.Content), diffNew.Render(m.Form.Inputs[1].Value()))
+			fmt.Fprintf(&b, "TTL:     %d -> %s\n", m.OldRecord.TTL, diffNew.Render(m.Form.Inputs[2].Value()))
+			
 			oldProxied := "No"
-			if m.OldRecord.Proxied != nil && *m.OldRecord.Proxied {
-				oldProxied = "Yes"
-			}
+			if m.OldRecord.Proxied != nil && *m.OldRecord.Proxied { oldProxied = "Yes" }
 			newProxied := "No"
-			if m.Form.Proxied {
-				newProxied = "Yes"
-			}
+			if m.Form.Proxied { newProxied = "Yes" }
 			fmt.Fprintf(&b, "Proxied: %s -> %s\n", diffOld.Render(oldProxied), diffNew.Render(newProxied))
 		} else {
 			// New Record View
-			fmt.Fprintf(&b, "Type:    %s\n", diffNew.Render(m.Form.Inputs[0].Value()))
-			fmt.Fprintf(&b, "Name:    %s\n", diffNew.Render(m.Form.Inputs[1].Value()))
-			fmt.Fprintf(&b, "Content: %s\n", diffNew.Render(m.Form.Inputs[2].Value()))
+			fmt.Fprintf(&b, "Name:    %s\n", diffNew.Render(m.Form.Inputs[0].Value()))
+			fmt.Fprintf(&b, "Content: %s\n", diffNew.Render(m.Form.Inputs[1].Value()))
+			fmt.Fprintf(&b, "TTL:     %s\n", diffNew.Render(m.Form.Inputs[2].Value()))
 			proxied := "No"
-			if m.Form.Proxied {
-				proxied = "Yes"
-			}
-			fmt.Fprintf(&b, "Proxied: %s\n", diffNew.Render(proxied))
+			if m.Form.Proxied { proxied = "Yes" }
+			b.WriteString(fmt.Sprintf("Proxied: %s\n", diffNew.Render(proxied)))
 		}
 
 		fmt.Fprintf(&b, "\n%s", confirmStyle.Render("Confirm save? (y/n)"))
