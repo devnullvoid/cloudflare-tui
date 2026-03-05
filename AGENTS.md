@@ -1,27 +1,32 @@
-# Cloudflare TUI: Agent Instructions
+# cftui: Agent Instructions
 
 You are an expert Go developer and TUI designer assisting with `cftui`.
 
-## Core Mandates
+## Architecture & Design Patterns
 
-### Architecture & Pattern
-- **Elm Architecture**: Strictly follow the Bubble Tea model (Model, Update, View).
-- **Project Structure**: Keep `cmd/cftui/main.go` as a lightweight entry point. All application logic must reside in `internal/ui/`.
-- **Async Commands**: Always use `tea.Cmd` for I/O operations (API calls) to keep the UI responsive.
+### 1. Unified CLI/TUI State
+- All application state (API client, Logger, Config) is managed by a centralized `CLI` struct in `internal/cli/root.go`.
+- Subcommands should use the global `app` instance to access shared resources.
+- Use `PersistentPreRunE` in the root command for initialization logic (logging, API client setup).
 
-### Safety & Integrity
-- **Validation**: Never allow modifying actions (Save/Delete) without proper input validation.
-- **Confirmation**: Always require explicit user confirmation for destructive or modifying operations.
-- **Error Handling**: Use the `ErrorMsg` pattern to catch and display errors without crashing the application. Clear errors on the next user interaction.
+### 2. Elm Architecture (Bubble Tea)
+- Strictly follow the Model-Update-View pattern.
+- All TUI logic resides in `internal/ui/`.
+- **Performance**: Use **pointer receivers** for all methods on `Model` and list items (`ZoneItem`, `RecordItem`) to avoid struct copying.
+- **Async**: Use `tea.Cmd` for all Cloudflare API calls.
 
-### Engineering Standards
-- **Cloudflare SDK**: Use the official `cloudflare-go` SDK.
-- **Styling**: Use `lipgloss` for UI components and maintain consistent styles defined in `internal/ui/model.go`.
-- **Testing**: Add or update unit tests in `cmd/cftui/main_test.go` (or package-specific test files) for all core logic changes.
+### 3. Engineering Standards
+- **Logging**: Use `charmbracelet/log`. Follow the XDG State Home spec (`~/.local/state/cftui/`) for default log paths. Implement detailed debug logging for all API traffic.
+- **Styles**: Use the centralized `Theme` struct in `internal/ui/model.go`. Ensure all new components support the built-in color schemes (Mocha, Nord, Dracula, etc.).
+- **CLI**: Use `spf13/cobra` for routing and `spf13/viper` for configuration/env-vars. Use `lipgloss/table` for user-friendly CLI output.
+
+## Code Quality & Safety
+- **Linter**: Ensure all code passes `golangci-lint`. Use `just check` to verify.
+- **Error Handling**: Explicitly handle or ignore all error returns (e.g., `_ = logFile.Close()`).
+- **Confirmations**: Always require user confirmation for destructive or modifying operations (Delete/Save/Quit).
+- **Validation**: Validate all required fields (Type, Name, Content) before initiating API calls.
 
 ## Development Workflow
-
-1. **Research**: Check `internal/ui/model.go` for the current state definition.
-2. **Strategy**: Propose structural changes before implementation.
-3. **Act**: Apply surgical changes to the relevant files.
-4. **Validate**: Run `go test ./...` and ensure the project builds correctly with `go build ./cmd/cftui`.
+1. **Research**: Review `internal/ui/model.go` for state definitions and `internal/cli/root.go` for shared state.
+2. **Execute**: Maintain pointer consistency. If you change a method to a pointer receiver, ensure type assertions in `Update()` are updated to pointer types.
+3. **Validate**: Always run `just check` and `just build` to ensure no lint regressions or build failures occur.
