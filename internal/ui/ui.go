@@ -42,6 +42,10 @@ func (m *Model) isProxiedSupported() bool {
 	return t == "A" || t == "AAAA" || t == "CNAME"
 }
 
+func (m *Model) isFlattenSupported() bool {
+	return strings.EqualFold(m.Form.Type, "CNAME")
+}
+
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
@@ -200,17 +204,21 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.Form.Focused++
 				}
 
-				// Total elements: Type (0), Inputs (1..N), Proxied (N+1), Save (N+2)
-				// If proxied is NOT supported, skip that index.
-				totalElements := len(m.Form.Inputs) + 3
+				totalElements := len(m.Form.Inputs) + 4
 				if m.Form.Focused >= totalElements {
 					m.Form.Focused = 0
 				} else if m.Form.Focused < 0 {
 					m.Form.Focused = totalElements - 1
 				}
 
-				// Skip Proxied if not supported
 				if m.Form.Focused == len(m.Form.Inputs)+1 && !m.isProxiedSupported() {
+					if s == "up" || s == "shift+tab" {
+						m.Form.Focused--
+					} else {
+						m.Form.Focused++
+					}
+				}
+				if m.Form.Focused == len(m.Form.Inputs)+2 && !m.isFlattenSupported() {
 					if s == "up" || s == "shift+tab" {
 						m.Form.Focused--
 					} else {
@@ -232,7 +240,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.State = PickingTypeState
 					return m, nil
 				}
-				if m.Form.Focused == len(m.Form.Inputs)+2 {
+				if m.Form.Focused == len(m.Form.Inputs)+3 { // Save Button
 					if m.Form.Inputs[0].Value() == "" {
 						m.Err = fmt.Errorf("name is required")
 						return m, nil
@@ -243,6 +251,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case " ":
 				if m.Form.Focused == len(m.Form.Inputs)+1 && m.isProxiedSupported() {
 					m.Form.Proxied = !m.Form.Proxied
+					return m, nil
+				}
+				if m.Form.Focused == len(m.Form.Inputs)+2 && m.isFlattenSupported() {
+					m.Form.FlattenCNAME = !m.Form.FlattenCNAME
 					return m, nil
 				}
 			}
@@ -336,7 +348,6 @@ func (m *Model) View() string {
 		}
 		fmt.Fprintf(&b, "%s\n\n", confirmStyle.Render(title))
 
-		// Render Type Selection Trigger (Index 0)
 		typeStr := fmt.Sprintf("Type: %s (Press Enter to change)", m.Form.Type)
 		if m.Form.Focused == 0 {
 			fmt.Fprintf(&b, "%s\n\n", focusedStyle.Render(typeStr))
@@ -356,7 +367,6 @@ func (m *Model) View() string {
 			if m.Form.Proxied {
 				proxiedStr = "[x] Proxied"
 			}
-
 			if m.Form.Focused == len(m.Form.Inputs)+1 {
 				fmt.Fprintf(&b, "\n\n%s", focusedStyle.Render(proxiedStr))
 			} else {
@@ -364,22 +374,32 @@ func (m *Model) View() string {
 			}
 		}
 
+		if m.isFlattenSupported() {
+			flattenStr := "[ ] Flatten CNAME"
+			if m.Form.FlattenCNAME {
+				flattenStr = "[x] Flatten CNAME"
+			}
+			if m.Form.Focused == len(m.Form.Inputs)+2 {
+				fmt.Fprintf(&b, "\n\n%s", focusedStyle.Render(flattenStr))
+			} else {
+				fmt.Fprintf(&b, "\n\n%s", flattenStr)
+			}
+		}
+
 		saveStr := "Save"
-		if m.Form.Focused == len(m.Form.Inputs)+2 {
+		if m.Form.Focused == len(m.Form.Inputs)+3 {
 			fmt.Fprintf(&b, "\n\n%s", focusedStyle.Render("["+saveStr+"]"))
 		} else {
 			fmt.Fprintf(&b, "\n\n[%s]", saveStr)
 		}
 
 		b.WriteString("\n\n(esc) cancel")
-
 		return DocStyle.Render(b.String())
 
 	case ConfirmingSaveState:
 		var b strings.Builder
 		fmt.Fprintf(&b, "%s\n\n", confirmStyle.Render("Review Changes"))
 
-		// Type Change
 		typeOld := ""
 		if m.OldRecord != nil {
 			typeOld = m.OldRecord.Type
@@ -390,7 +410,6 @@ func (m *Model) View() string {
 			fmt.Fprintf(&b, "Type:    %s\n", m.Form.Type)
 		}
 
-		// Values (Simplified loop for dynamic fields)
 		for i := range m.Form.Inputs {
 			fmt.Fprintf(&b, "%s %s\n", m.Form.Inputs[i].Prompt, diffNew.Render(m.Form.Inputs[i].Value()))
 		}
@@ -408,6 +427,22 @@ func (m *Model) View() string {
 				fmt.Fprintf(&b, "Proxied: %s -> %s\n", diffOld.Render(oldProxied), diffNew.Render(newProxied))
 			} else {
 				fmt.Fprintf(&b, "Proxied: %s\n", diffNew.Render(newProxied))
+			}
+		}
+
+		if m.isFlattenSupported() {
+			oldFlat := "No"
+			if m.OldRecord != nil && m.OldRecord.Settings.FlattenCNAME != nil && *m.OldRecord.Settings.FlattenCNAME {
+				oldFlat = "Yes"
+			}
+			newFlat := "No"
+			if m.Form.FlattenCNAME {
+				newFlat = "Yes"
+			}
+			if m.OldRecord != nil {
+				fmt.Fprintf(&b, "Flatten: %s -> %s\n", diffOld.Render(oldFlat), diffNew.Render(newFlat))
+			} else {
+				fmt.Fprintf(&b, "Flatten: %s\n", diffNew.Render(newFlat))
 			}
 		}
 

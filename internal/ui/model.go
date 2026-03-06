@@ -132,12 +132,14 @@ type Model struct {
 
 // RecordForm manages input fields for adding/editing a record.
 type RecordForm struct {
-	ID       string
-	Type     string
-	TypeList list.Model
-	Inputs   []textinput.Model
-	Focused  int
-	Proxied  bool
+	ID           string
+	Type         string
+	TypeList     list.Model
+	Inputs       []textinput.Model
+	Focused      int
+	Proxied      bool
+	Comment      string
+	FlattenCNAME bool
 }
 
 // Message types for async operations.

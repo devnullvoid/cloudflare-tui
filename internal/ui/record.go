@@ -43,7 +43,6 @@ func (i *RecordItem) Description() string {
 	}
 	content := i.DNS.Content
 	if i.DNS.Type == "SRV" && i.DNS.Data != nil {
-		// Simplified display for SRV data if content is empty
 		content = fmt.Sprintf("%v", i.DNS.Data)
 	}
 	return fmt.Sprintf("Content: %s | Proxied: %s | TTL: %d", content, proxied, i.DNS.TTL)
@@ -73,12 +72,16 @@ func NewRecordForm(r *cloudflare.DNSRecord, theme *Theme) RecordForm {
 	f.TypeList.FilterInput.TextStyle = f.TypeList.FilterInput.TextStyle.Foreground(theme.Secondary)
 	f.TypeList.FilterInput.Cursor.Style = f.TypeList.FilterInput.Cursor.Style.Foreground(theme.Primary)
 
-	// Default to A if new
+	// Defaults
 	f.Type = "A"
 	if r != nil {
 		f.ID = r.ID
 		f.Type = r.Type
 		f.Proxied = r.Proxied != nil && *r.Proxied
+		f.Comment = r.Comment
+		if r.Settings.FlattenCNAME != nil {
+			f.FlattenCNAME = *r.Settings.FlattenCNAME
+		}
 	}
 
 	f.initializeInputs(r, theme)
@@ -86,7 +89,6 @@ func NewRecordForm(r *cloudflare.DNSRecord, theme *Theme) RecordForm {
 }
 
 func (f *RecordForm) initializeInputs(r *cloudflare.DNSRecord, theme *Theme) {
-	// Define fields based on type
 	type field struct {
 		label       string
 		placeholder string
@@ -121,7 +123,10 @@ func (f *RecordForm) initializeInputs(r *cloudflare.DNSRecord, theme *Theme) {
 		fields = append(fields, field{label: "Content", placeholder: "e.g. 1.2.3.4", value: ""})
 	}
 
-	fields = append(fields, field{label: "TTL", placeholder: "1 = auto", value: "1"})
+	fields = append(fields,
+		field{label: "TTL", placeholder: "1 = auto", value: "1"},
+		field{label: "Comment", placeholder: "Optional description", value: ""},
+	)
 
 	f.Inputs = make([]textinput.Model, len(fields))
 	for i, fld := range fields {
@@ -134,9 +139,12 @@ func (f *RecordForm) initializeInputs(r *cloudflare.DNSRecord, theme *Theme) {
 		f.Inputs[i].Blur()
 	}
 
-	// Fill values if editing
 	if r != nil {
-		f.Inputs[0].SetValue(r.Name) // Name is always index 0
+		f.Inputs[0].SetValue(r.Name)
+
+		lastIdx := len(f.Inputs) - 1
+		f.Inputs[lastIdx].SetValue(r.Comment)
+		f.Inputs[lastIdx-1].SetValue(strconv.Itoa(r.TTL))
 
 		switch f.Type {
 		case "MX":
@@ -144,7 +152,6 @@ func (f *RecordForm) initializeInputs(r *cloudflare.DNSRecord, theme *Theme) {
 			if r.Priority != nil {
 				f.Inputs[2].SetValue(strconv.Itoa(int(*r.Priority)))
 			}
-			f.Inputs[3].SetValue(strconv.Itoa(r.TTL))
 		case "SRV":
 			if data, ok := r.Data.(map[string]interface{}); ok {
 				f.Inputs[1].SetValue(fmt.Sprintf("%v", data["service"]))
@@ -154,22 +161,19 @@ func (f *RecordForm) initializeInputs(r *cloudflare.DNSRecord, theme *Theme) {
 				f.Inputs[5].SetValue(fmt.Sprintf("%v", data["port"]))
 				f.Inputs[6].SetValue(fmt.Sprintf("%v", data["target"]))
 			}
-			f.Inputs[7].SetValue(strconv.Itoa(r.TTL))
 		case "CAA":
 			if data, ok := r.Data.(map[string]interface{}); ok {
 				f.Inputs[1].SetValue(fmt.Sprintf("%v", data["tag"]))
 				f.Inputs[2].SetValue(fmt.Sprintf("%v", data["flags"]))
 				f.Inputs[3].SetValue(fmt.Sprintf("%v", data["value"]))
 			}
-			f.Inputs[4].SetValue(strconv.Itoa(r.TTL))
 		default:
 			f.Inputs[1].SetValue(r.Content)
-			f.Inputs[2].SetValue(strconv.Itoa(r.TTL))
 		}
 	}
 
 	f.Inputs[0].Focus()
-	f.Focused = 1 // Start focus on the first input (after Type trigger)
+	f.Focused = 1 // Start on first field
 }
 
 // FetchRecords returns a tea.Cmd that fetches DNS records for a specific zone.
@@ -192,13 +196,14 @@ func SaveRecord(api *cloudflare.API, zoneID string, f *RecordForm, logger *log.L
 	return func() tea.Msg {
 		rc := cloudflare.ZoneIdentifier(zoneID)
 
-		// Map inputs back to cloudflare params
 		var name, content string
 		var ttl int
 		var priority *uint16
 		var data interface{}
 
 		name = f.Inputs[0].Value()
+		comment := f.Inputs[len(f.Inputs)-1].Value()
+		ttl, _ = strconv.Atoi(f.Inputs[len(f.Inputs)-2].Value())
 
 		switch f.Type {
 		case "MX":
@@ -206,7 +211,6 @@ func SaveRecord(api *cloudflare.API, zoneID string, f *RecordForm, logger *log.L
 			p, _ := strconv.Atoi(f.Inputs[2].Value())
 			up := uint16(p)
 			priority = &up
-			ttl, _ = strconv.Atoi(f.Inputs[3].Value())
 		case "SRV":
 			p, _ := strconv.Atoi(f.Inputs[3].Value())
 			w, _ := strconv.Atoi(f.Inputs[4].Value())
@@ -220,7 +224,6 @@ func SaveRecord(api *cloudflare.API, zoneID string, f *RecordForm, logger *log.L
 				"target":   f.Inputs[6].Value(),
 				"name":     name,
 			}
-			ttl, _ = strconv.Atoi(f.Inputs[7].Value())
 		case "CAA":
 			fl, _ := strconv.Atoi(f.Inputs[2].Value())
 			data = map[string]interface{}{
@@ -228,10 +231,8 @@ func SaveRecord(api *cloudflare.API, zoneID string, f *RecordForm, logger *log.L
 				"flags": fl,
 				"value": f.Inputs[3].Value(),
 			}
-			ttl, _ = strconv.Atoi(f.Inputs[4].Value())
 		default:
 			content = f.Inputs[1].Value()
-			ttl, _ = strconv.Atoi(f.Inputs[2].Value())
 		}
 
 		params := cloudflare.UpdateDNSRecordParams{
@@ -243,6 +244,13 @@ func SaveRecord(api *cloudflare.API, zoneID string, f *RecordForm, logger *log.L
 			Priority: priority,
 			Proxied:  &f.Proxied,
 			Data:     data,
+			Comment:  &comment,
+		}
+
+		if f.Type == "CNAME" {
+			params.Settings = cloudflare.DNSRecordSettings{
+				FlattenCNAME: &f.FlattenCNAME,
+			}
 		}
 
 		var err error
@@ -256,6 +264,8 @@ func SaveRecord(api *cloudflare.API, zoneID string, f *RecordForm, logger *log.L
 				Priority: params.Priority,
 				Proxied:  params.Proxied,
 				Data:     params.Data,
+				Comment:  *params.Comment, // Create expects string
+				Settings: params.Settings,
 			})
 		} else {
 			logger.Debug("Initiating UpdateDNSRecord API call", "zoneID", zoneID, "recordID", f.ID)

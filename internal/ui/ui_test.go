@@ -55,9 +55,9 @@ func TestNewRecordForm(t *testing.T) {
 	if form.ID != "" {
 		t.Errorf("Expected empty ID for new form, got %s", form.ID)
 	}
-	// Initializing with default A should have Name, Content, TTL
-	if len(form.Inputs) != 3 {
-		t.Errorf("Expected 3 inputs, got %d", len(form.Inputs))
+	// Initializing with default A should have Name, Content, TTL, Comment
+	if len(form.Inputs) != 4 {
+		t.Errorf("Expected 4 inputs, got %d", len(form.Inputs))
 	}
 
 	// Test creating a form from an existing record
