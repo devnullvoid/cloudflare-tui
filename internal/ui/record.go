@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
 	"github.com/cloudflare/cloudflare-go"
 )
@@ -33,6 +34,8 @@ type RecordItem struct {
 }
 
 func (i *RecordItem) Title() string {
+	// Put the name first so visual filtering highlights (underlining) align correctly.
+	// We append the type at the end in brackets.
 	return fmt.Sprintf("%s [%s]", i.DNS.Name, i.DNS.Type)
 }
 func (i *RecordItem) Description() string {
@@ -47,13 +50,25 @@ func (i *RecordItem) FilterValue() string { return i.DNS.Name }
 // NewRecordForm initializes a form for a DNS record.
 func NewRecordForm(r *cloudflare.DNSRecord, theme *Theme) RecordForm {
 	var f RecordForm
-
-	// Initialize Type List
+	
+	// Initialize Type List with theme
 	delegate := list.NewDefaultDelegate()
 	delegate.ShowDescription = false
+	delegate.Styles.SelectedTitle = delegate.Styles.SelectedTitle.
+		Foreground(theme.Primary).
+		BorderLeftForeground(theme.Primary)
+	
 	f.TypeList = list.New(validRecordTypes, delegate, 0, 0)
 	f.TypeList.Title = "Select Record Type"
 	f.TypeList.SetFilteringEnabled(true)
+	f.TypeList.Styles.Title = f.TypeList.Styles.Title.
+		Background(theme.Primary).
+		Foreground(lipgloss.Color("#1e1e2e"))
+	
+	// Themed Filter Input for Type Picker
+	f.TypeList.FilterInput.PromptStyle = f.TypeList.FilterInput.PromptStyle.Foreground(theme.Primary)
+	f.TypeList.FilterInput.TextStyle = f.TypeList.FilterInput.TextStyle.Foreground(theme.Secondary)
+	f.TypeList.FilterInput.Cursor.Style = f.TypeList.FilterInput.Cursor.Style.Foreground(theme.Primary)
 
 	// Default to A if new
 	f.Type = "A"
@@ -73,7 +88,7 @@ func (f *RecordForm) initializeInputs(r *cloudflare.DNSRecord, theme *Theme) {
 	if f.Type == "MX" {
 		numFields = 4
 	}
-
+	
 	f.Inputs = make([]textinput.Model, numFields)
 	for i := range f.Inputs {
 		f.Inputs[i] = textinput.New()
@@ -101,13 +116,14 @@ func (f *RecordForm) initializeInputs(r *cloudflare.DNSRecord, theme *Theme) {
 	} else {
 		f.Inputs[2].SetValue("1") // Default TTL auto
 	}
-
+	
 	// Start with all inputs unfocused (Type selector at index 0 will have focus)
 	for i := range f.Inputs {
 		f.Inputs[i].Blur()
 	}
 	f.Focused = 0
-	}
+}
+
 // FetchRecords returns a tea.Cmd that fetches DNS records for a specific zone.
 func FetchRecords(api *cloudflare.API, zoneID string, logger *log.Logger) tea.Cmd {
 	return func() tea.Msg {
@@ -127,7 +143,7 @@ func FetchRecords(api *cloudflare.API, zoneID string, logger *log.Logger) tea.Cm
 func SaveRecord(api *cloudflare.API, zoneID string, f *RecordForm, logger *log.Logger) tea.Cmd {
 	return func() tea.Msg {
 		rc := cloudflare.ZoneIdentifier(zoneID)
-
+		
 		ttl, _ := strconv.Atoi(f.Inputs[2].Value())
 		params := cloudflare.UpdateDNSRecordParams{
 			ID:      f.ID,
