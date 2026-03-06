@@ -29,20 +29,18 @@ func TestUpdate(t *testing.T) {
 func TestRecordListTransition(t *testing.T) {
 	m := InitialModel(nil, &DefaultTheme, nil, nil)
 	m.State = ZoneListState
-
+	
 	// Mock selecting a zone
 	z := &ZoneItem{ID: "zone123", Name: "test.com"}
 	m.ZoneList.SetItems([]list.Item{z})
-
-	// We can't easily trigger the 'enter' key in a unit test without more boilerplate,
-	// but we can test the FetchedRecordsMsg transition.
+	
 	records := []cloudflare.DNSRecord{
 		{ID: "rec1", Name: "www", Type: "A", Content: "1.1.1.1"},
 	}
-
+	
 	newModel, _ := m.Update(FetchedRecordsMsg(records))
 	updatedModel := newModel.(*Model)
-
+	
 	if updatedModel.State != RecordListState {
 		t.Errorf("Expected RecordListState, got %v", updatedModel.State)
 	}
@@ -57,6 +55,7 @@ func TestNewRecordForm(t *testing.T) {
 	if form.ID != "" {
 		t.Errorf("Expected empty ID for new form, got %s", form.ID)
 	}
+	// Initializing with default A should have Name, Content, TTL
 	if len(form.Inputs) != 3 {
 		t.Errorf("Expected 3 inputs, got %d", len(form.Inputs))
 	}
@@ -74,8 +73,11 @@ func TestNewRecordForm(t *testing.T) {
 	if form.ID != "rec123" {
 		t.Errorf("Expected ID rec123, got %s", form.ID)
 	}
-	if form.Inputs[0].Value() != "A" {
-		t.Errorf("Expected Type A, got %s", form.Inputs[0].Value())
+	if form.Type != "A" {
+		t.Errorf("Expected Type A, got %s", form.Type)
+	}
+	if form.Inputs[0].Value() != "test" {
+		t.Errorf("Expected Name test, got %s", form.Inputs[0].Value())
 	}
 	if !form.Proxied {
 		t.Error("Expected proxied to be true")

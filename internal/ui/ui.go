@@ -120,6 +120,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.WindowSizeMsg:
+		m.Width, m.Height = msg.Width, msg.Height
 		h, v := DocStyle.GetFrameSize()
 		m.ZoneList.SetSize(msg.Width-h, msg.Height-v-helpHeight)
 		m.RecordList.SetSize(msg.Width-h, msg.Height-v-helpHeight)
@@ -153,6 +154,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "a":
 				m.Logger.Debug("Opening add record form")
 				m.Form = NewRecordForm(nil, &m.Theme)
+				// Apply current size to the new form's list
+				h, v := DocStyle.GetFrameSize()
+				m.Form.TypeList.SetSize(m.Width-h, m.Height-v-helpHeight)
 				m.OldRecord = nil
 				m.State = EditingRecordState
 				return m, nil
@@ -160,6 +164,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if i, ok := m.RecordList.SelectedItem().(*RecordItem); ok {
 					m.Logger.Debug("Opening edit record form", "id", i.DNS.ID)
 					m.Form = NewRecordForm(&i.DNS, &m.Theme)
+					// Apply current size to the new form's list
+					h, v := DocStyle.GetFrameSize()
+					m.Form.TypeList.SetSize(m.Width-h, m.Height-v-helpHeight)
 					m.OldRecord = &i.DNS
 					m.State = EditingRecordState
 					return m, nil
@@ -190,7 +197,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.Form.Focused++
 				}
 
-				// Total elements: Inputs + Type Trigger + Proxied + Save
+				// Focus Order: 
+				// 0: Type Selector
+				// 1..N: Inputs (Name, Content, TTL...)
+				// N+1: Proxied Toggle
+				// N+2: Save Button
 				totalElements := len(m.Form.Inputs) + 3 
 				if m.Form.Focused >= totalElements {
 					m.Form.Focused = 0
@@ -199,7 +210,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 
 				for i := range m.Form.Inputs {
-					if i == m.Form.Focused {
+					// Input index is focusedIndex - 1 (because Type is at 0)
+					if i == m.Form.Focused-1 {
 						cmds = append(cmds, m.Form.Inputs[i].Focus())
 					} else {
 						m.Form.Inputs[i].Blur()
@@ -208,12 +220,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Batch(cmds...)
 
 			case "enter":
-				// Type Trigger
-				if m.Form.Focused == len(m.Form.Inputs) {
+				// 0: Type Selector
+				if m.Form.Focused == 0 {
 					m.State = PickingTypeState
 					return m, nil
 				}
-				// Save Button
+				// N+2: Save Button
 				if m.Form.Focused == len(m.Form.Inputs)+2 {
 					if m.Form.Inputs[0].Value() == "" || m.Form.Inputs[1].Value() == "" {
 						m.Err = fmt.Errorf("name and content are required")
@@ -223,7 +235,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 			case " ":
-				// Proxied Toggle
+				// N+1: Proxied Toggle
 				if m.Form.Focused == len(m.Form.Inputs)+1 {
 					m.Form.Proxied = !m.Form.Proxied
 					return m, nil
@@ -320,9 +332,9 @@ func (m *Model) View() string {
 		}
 		fmt.Fprintf(&b, "%s\n\n", confirmStyle.Render(title))
 
-		// Render Type Selection Trigger
+		// Render Type Selection Trigger (Index 0)
 		typeStr := fmt.Sprintf("Type: %s (Press Enter to change)", m.Form.Type)
-		if m.Form.Focused == len(m.Form.Inputs) {
+		if m.Form.Focused == 0 {
 			fmt.Fprintf(&b, "%s\n\n", focusedStyle.Render(typeStr))
 		} else {
 			fmt.Fprintf(&b, "%s\n\n", typeStr)
@@ -340,6 +352,7 @@ func (m *Model) View() string {
 			proxiedStr = "[x] Proxied"
 		}
 		
+		// Proxied index is len(Inputs) + 1
 		if m.Form.Focused == len(m.Form.Inputs)+1 {
 			fmt.Fprintf(&b, "\n\n%s", focusedStyle.Render(proxiedStr))
 		} else {
@@ -347,6 +360,7 @@ func (m *Model) View() string {
 		}
 
 		saveStr := "Save"
+		// Save index is len(Inputs) + 2
 		if m.Form.Focused == len(m.Form.Inputs)+2 {
 			fmt.Fprintf(&b, "\n\n%s", focusedStyle.Render("["+saveStr+"]"))
 		} else {
@@ -388,7 +402,7 @@ func (m *Model) View() string {
 			fmt.Fprintf(&b, "TTL:     %s\n", diffNew.Render(m.Form.Inputs[2].Value()))
 			proxied := "No"
 			if m.Form.Proxied { proxied = "Yes" }
-			b.WriteString(fmt.Sprintf("Proxied: %s\n", diffNew.Render(proxied)))
+			fmt.Fprintf(&b, "Proxied: %s\n", diffNew.Render(proxied))
 		}
 
 		fmt.Fprintf(&b, "\n%s", confirmStyle.Render("Confirm save? (y/n)"))

@@ -102,11 +102,12 @@ func (f *RecordForm) initializeInputs(r *cloudflare.DNSRecord, theme *Theme) {
 		f.Inputs[2].SetValue("1") // Default TTL auto
 	}
 
-	// Start with Name focused
-	f.Inputs[0].Focus()
+	// Start with all inputs unfocused (Type selector at index 0 will have focus)
+	for i := range f.Inputs {
+		f.Inputs[i].Blur()
+	}
 	f.Focused = 0
-}
-
+	}
 // FetchRecords returns a tea.Cmd that fetches DNS records for a specific zone.
 func FetchRecords(api *cloudflare.API, zoneID string, logger *log.Logger) tea.Cmd {
 	return func() tea.Msg {
