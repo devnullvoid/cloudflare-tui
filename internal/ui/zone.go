@@ -75,12 +75,16 @@ func InitialModel(api *cloudflare.API, theme *Theme, logger *log.Logger, logFile
 		logger.SetLevel(log.FatalLevel)
 	}
 
+	// Initialize a dummy form so that Form.TypeList is not zero-valued during WindowSizeMsg
+	dummyForm := NewRecordForm(nil, theme)
+
 	return &Model{
 		State:      LoadingZonesState,
 		CfClient:   api,
 		Theme:      *theme,
 		ZoneList:   l,
 		RecordList: r,
+		Form:       dummyForm,
 		Spinner:    s,
 		Logger:     logger,
 		LogFile:    logFile,
