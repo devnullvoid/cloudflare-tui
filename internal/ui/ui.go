@@ -37,6 +37,11 @@ func (m *Model) updateList(msg tea.Msg) tea.Cmd {
 	return cmd
 }
 
+func (m *Model) isProxiedSupported() bool {
+	t := strings.ToUpper(m.Form.Type)
+	return t == "A" || t == "AAAA" || t == "CNAME"
+}
+
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
@@ -47,7 +52,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Err = nil
 			return m, nil
 		}
-		
+
 		// Handle Ctrl+C globally
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
@@ -154,7 +159,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "a":
 				m.Logger.Debug("Opening add record form")
 				m.Form = NewRecordForm(nil, &m.Theme)
-				// Apply current size to the new form's list
 				h, v := DocStyle.GetFrameSize()
 				m.Form.TypeList.SetSize(m.Width-h, m.Height-v-helpHeight)
 				m.OldRecord = nil
@@ -164,7 +168,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if i, ok := m.RecordList.SelectedItem().(*RecordItem); ok {
 					m.Logger.Debug("Opening edit record form", "id", i.DNS.ID)
 					m.Form = NewRecordForm(&i.DNS, &m.Theme)
-					// Apply current size to the new form's list
 					h, v := DocStyle.GetFrameSize()
 					m.Form.TypeList.SetSize(m.Width-h, m.Height-v-helpHeight)
 					m.OldRecord = &i.DNS
@@ -197,20 +200,25 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.Form.Focused++
 				}
 
-				// Focus Order: 
-				// 0: Type Selector
-				// 1..N: Inputs (Name, Content, TTL...)
-				// N+1: Proxied Toggle
-				// N+2: Save Button
-				totalElements := len(m.Form.Inputs) + 3 
+				// Total elements: Type (0), Inputs (1..N), Proxied (N+1), Save (N+2)
+				// If proxied is NOT supported, skip that index.
+				totalElements := len(m.Form.Inputs) + 3
 				if m.Form.Focused >= totalElements {
 					m.Form.Focused = 0
 				} else if m.Form.Focused < 0 {
 					m.Form.Focused = totalElements - 1
 				}
 
+				// Skip Proxied if not supported
+				if m.Form.Focused == len(m.Form.Inputs)+1 && !m.isProxiedSupported() {
+					if s == "up" || s == "shift+tab" {
+						m.Form.Focused--
+					} else {
+						m.Form.Focused++
+					}
+				}
+
 				for i := range m.Form.Inputs {
-					// Input index is focusedIndex - 1 (because Type is at 0)
 					if i == m.Form.Focused-1 {
 						cmds = append(cmds, m.Form.Inputs[i].Focus())
 					} else {
@@ -220,23 +228,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Batch(cmds...)
 
 			case "enter":
-				// 0: Type Selector
 				if m.Form.Focused == 0 {
 					m.State = PickingTypeState
 					return m, nil
 				}
-				// N+2: Save Button
 				if m.Form.Focused == len(m.Form.Inputs)+2 {
-					if m.Form.Inputs[0].Value() == "" || m.Form.Inputs[1].Value() == "" {
-						m.Err = fmt.Errorf("name and content are required")
+					if m.Form.Inputs[0].Value() == "" {
+						m.Err = fmt.Errorf("name is required")
 						return m, nil
 					}
 					m.State = ConfirmingSaveState
 					return m, nil
 				}
 			case " ":
-				// N+1: Proxied Toggle
-				if m.Form.Focused == len(m.Form.Inputs)+1 {
+				if m.Form.Focused == len(m.Form.Inputs)+1 && m.isProxiedSupported() {
 					m.Form.Proxied = !m.Form.Proxied
 					return m, nil
 				}
@@ -257,7 +262,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "enter":
 				if i, ok := m.Form.TypeList.SelectedItem().(typeItem); ok {
 					m.Form.Type = string(i)
-					// Re-initialize inputs to handle field changes (like MX Priority)
 					m.Form.initializeInputs(m.OldRecord, &m.Theme)
 					m.State = EditingRecordState
 					return m, nil
@@ -320,7 +324,7 @@ func (m *Model) View() string {
 		view := m.RecordList.View()
 		help := lipgloss.NewStyle().Foreground(m.Theme.Inactive).MarginTop(1).Render("(a) add record, (enter) edit record, (d) delete record, (esc) back, (q) quit")
 		return DocStyle.Render(view + "\n" + help)
-	
+
 	case PickingTypeState:
 		return DocStyle.Render(m.Form.TypeList.View())
 
@@ -347,20 +351,20 @@ func (m *Model) View() string {
 			}
 		}
 
-		proxiedStr := "[ ] Proxied"
-		if m.Form.Proxied {
-			proxiedStr = "[x] Proxied"
-		}
-		
-		// Proxied index is len(Inputs) + 1
-		if m.Form.Focused == len(m.Form.Inputs)+1 {
-			fmt.Fprintf(&b, "\n\n%s", focusedStyle.Render(proxiedStr))
-		} else {
-			fmt.Fprintf(&b, "\n\n%s", proxiedStr)
+		if m.isProxiedSupported() {
+			proxiedStr := "[ ] Proxied"
+			if m.Form.Proxied {
+				proxiedStr = "[x] Proxied"
+			}
+
+			if m.Form.Focused == len(m.Form.Inputs)+1 {
+				fmt.Fprintf(&b, "\n\n%s", focusedStyle.Render(proxiedStr))
+			} else {
+				fmt.Fprintf(&b, "\n\n%s", proxiedStr)
+			}
 		}
 
 		saveStr := "Save"
-		// Save index is len(Inputs) + 2
 		if m.Form.Focused == len(m.Form.Inputs)+2 {
 			fmt.Fprintf(&b, "\n\n%s", focusedStyle.Render("["+saveStr+"]"))
 		} else {
@@ -374,35 +378,37 @@ func (m *Model) View() string {
 	case ConfirmingSaveState:
 		var b strings.Builder
 		fmt.Fprintf(&b, "%s\n\n", confirmStyle.Render("Review Changes"))
-		
+
 		// Type Change
 		typeOld := ""
-		if m.OldRecord != nil { typeOld = m.OldRecord.Type }
+		if m.OldRecord != nil {
+			typeOld = m.OldRecord.Type
+		}
 		if typeOld != "" && typeOld != m.Form.Type {
 			fmt.Fprintf(&b, "Type:    %s -> %s\n", diffOld.Render(typeOld), diffNew.Render(m.Form.Type))
 		} else {
 			fmt.Fprintf(&b, "Type:    %s\n", m.Form.Type)
 		}
 
-		if m.OldRecord != nil {
-			// Change View
-			fmt.Fprintf(&b, "Name:    %s -> %s\n", diffOld.Render(m.OldRecord.Name), diffNew.Render(m.Form.Inputs[0].Value()))
-			fmt.Fprintf(&b, "Content: %s -> %s\n", diffOld.Render(m.OldRecord.Content), diffNew.Render(m.Form.Inputs[1].Value()))
-			fmt.Fprintf(&b, "TTL:     %d -> %s\n", m.OldRecord.TTL, diffNew.Render(m.Form.Inputs[2].Value()))
-			
+		// Values (Simplified loop for dynamic fields)
+		for i := range m.Form.Inputs {
+			fmt.Fprintf(&b, "%s %s\n", m.Form.Inputs[i].Prompt, diffNew.Render(m.Form.Inputs[i].Value()))
+		}
+
+		if m.isProxiedSupported() {
 			oldProxied := "No"
-			if m.OldRecord.Proxied != nil && *m.OldRecord.Proxied { oldProxied = "Yes" }
+			if m.OldRecord != nil && m.OldRecord.Proxied != nil && *m.OldRecord.Proxied {
+				oldProxied = "Yes"
+			}
 			newProxied := "No"
-			if m.Form.Proxied { newProxied = "Yes" }
-			fmt.Fprintf(&b, "Proxied: %s -> %s\n", diffOld.Render(oldProxied), diffNew.Render(newProxied))
-		} else {
-			// New Record View
-			fmt.Fprintf(&b, "Name:    %s\n", diffNew.Render(m.Form.Inputs[0].Value()))
-			fmt.Fprintf(&b, "Content: %s\n", diffNew.Render(m.Form.Inputs[1].Value()))
-			fmt.Fprintf(&b, "TTL:     %s\n", diffNew.Render(m.Form.Inputs[2].Value()))
-			proxied := "No"
-			if m.Form.Proxied { proxied = "Yes" }
-			fmt.Fprintf(&b, "Proxied: %s\n", diffNew.Render(proxied))
+			if m.Form.Proxied {
+				newProxied = "Yes"
+			}
+			if m.OldRecord != nil {
+				fmt.Fprintf(&b, "Proxied: %s -> %s\n", diffOld.Render(oldProxied), diffNew.Render(newProxied))
+			} else {
+				fmt.Fprintf(&b, "Proxied: %s\n", diffNew.Render(newProxied))
+			}
 		}
 
 		fmt.Fprintf(&b, "\n%s", confirmStyle.Render("Confirm save? (y/n)"))

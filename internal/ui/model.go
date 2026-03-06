@@ -119,7 +119,7 @@ type Model struct {
 
 	Err        error
 	SelectedID string
-	
+
 	// Dimensions
 	Width  int
 	Height int
