@@ -29,18 +29,18 @@ func TestUpdate(t *testing.T) {
 func TestRecordListTransition(t *testing.T) {
 	m := InitialModel(nil, &DefaultTheme, nil, nil)
 	m.State = ZoneListState
-	
+
 	// Mock selecting a zone
 	z := &ZoneItem{ID: "zone123", Name: "test.com"}
 	m.ZoneList.SetItems([]list.Item{z})
-	
+
 	records := []cloudflare.DNSRecord{
 		{ID: "rec1", Name: "www", Type: "A", Content: "1.1.1.1"},
 	}
-	
+
 	newModel, _ := m.Update(FetchedRecordsMsg(records))
 	updatedModel := newModel.(*Model)
-	
+
 	if updatedModel.State != RecordListState {
 		t.Errorf("Expected RecordListState, got %v", updatedModel.State)
 	}
