@@ -14,7 +14,11 @@ test-coverage:
 
 # Run linter
 lint:
-    golangci-lint run
+    @if [ -f .golangci.v2.yml ]; then \
+        golangci-lint run -c .golangci.v2.yml; \
+    else \
+        golangci-lint run; \
+    fi
 
 # Build binary
 build:
