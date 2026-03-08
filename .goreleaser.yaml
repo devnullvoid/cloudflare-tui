@@ -14,6 +14,8 @@ builds:
       - arm64
     main: ./cmd/cftui
     binary: cftui
+    ldflags:
+      - -s -w
 
 # Archive customization
 archives:
@@ -30,6 +32,9 @@ archives:
       {{- if eq .Arch "amd64" }}x86_64
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
+    files:
+      - LICENSE
+      - README.md
 
 # Checksum customization
 checksum:
@@ -42,6 +47,8 @@ changelog:
     exclude:
       - '^docs:'
       - '^test:'
+      - '^chore:'
+      - '^ci:'
 
 # Release customization
 release:
@@ -56,3 +63,81 @@ release:
   footer: |
     ---
     Built with Go and Bubble Tea.
+
+# AUR Package (Binary)
+aurs:
+  - name: cftui-bin
+    homepage: "https://github.com/devnullvoid/cloudflare-tui"
+    description: "A terminal user interface (TUI) for managing Cloudflare DNS records"
+    maintainers:
+      - "devnullvoid <devnullvoid.space@gmail.com>"
+    license: "MIT"
+    private_key: "{{ .Env.AUR_PRIVATE_KEY }}"
+    git_url: "ssh://aur@aur.archlinux.org/cftui-bin.git"
+    conflicts:
+      - "cftui"
+      - "cftui-git"
+    provides:
+      - "cftui"
+    depends:
+      - "glibc"
+    package: |-
+      # Install binary
+      install -Dm755 "./cftui" "${pkgdir}/usr/bin/cftui"
+
+      # Install license
+      install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/cftui/LICENSE"
+
+      # Install documentation
+      install -Dm644 "./README.md" "${pkgdir}/usr/share/doc/cftui/README.md"
+
+# DEB/RPM Packages
+nfpms:
+  - id: cftui-pkg
+    package_name: cftui
+    description: "A terminal user interface (TUI) for managing Cloudflare DNS records"
+    homepage: "https://github.com/devnullvoid/cloudflare-tui"
+    maintainer: "devnullvoid <devnullvoid.space@gmail.com>"
+    license: "MIT"
+    formats:
+      - deb
+      - rpm
+    contents:
+      - src: cftui
+        dst: "/usr/local/bin/cftui"
+        type: "file"
+      - src: "LICENSE"
+        dst: "/usr/share/doc/cftui/LICENSE"
+        type: "doc"
+      - src: "README.md"
+        dst: "/usr/share/doc/cftui/README.md"
+        type: "doc"
+
+# Homebrew Formula
+brews:
+  - name: cftui
+    description: "A terminal user interface (TUI) for managing Cloudflare DNS records"
+    homepage: "https://github.com/devnullvoid/cloudflare-tui"
+    license: "MIT"
+    repository:
+      owner: devnullvoid
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    commit_author:
+      name: goreleaserbot
+      email: goreleaser@cftui.com
+    directory: Formula
+
+# Scoop Manifest
+scoops:
+  - name: cftui
+    description: "A terminal user interface (TUI) for managing Cloudflare DNS records"
+    homepage: "https://github.com/devnullvoid/cloudflare-tui"
+    license: "MIT"
+    repository:
+      owner: devnullvoid
+      name: scoop-bucket
+      token: "{{ .Env.SCOOP_GITHUB_TOKEN }}"
+    commit_author:
+      name: goreleaserbot
+      email: goreleaser@cftui.com
