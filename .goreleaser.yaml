@@ -103,7 +103,7 @@ nfpms:
       - deb
       - rpm
     contents:
-      - src: cftui
+      - src: "{{ .ArtifactPath }}"
         dst: "/usr/local/bin/cftui"
         type: "file"
       - src: "LICENSE"
