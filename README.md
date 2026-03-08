@@ -26,6 +26,18 @@ Download the latest pre-compiled binary for your platform from the [Releases](ht
 go install github.com/devnullvoid/cloudflare-tui/cmd/cftui@latest
 ```
 
+### AUR (Arch Linux)
+
+You can install `cftui` from the AUR using an AUR helper like `paru` or `yay`:
+
+```bash
+# Binary version (recommended)
+paru -S cftui-bin
+
+# Development version (builds from source)
+paru -S cftui-git
+```
+
 ### Build from Source
 
 ```bash
