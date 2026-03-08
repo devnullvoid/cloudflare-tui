@@ -10,8 +10,6 @@ linters:
     - ineffassign
     - staticcheck
     - unused
-    - gofmt
-    - goimports
     - misspell
     - unconvert
     - unparam
@@ -19,7 +17,7 @@ linters:
 
 linters-settings:
   errcheck:
-    check-blank: true
+    check-blank: false
   gocritic:
     enabled-tags:
       - diagnostic
