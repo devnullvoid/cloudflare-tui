@@ -21,6 +21,8 @@ const (
 	RecordListState
 	EditingRecordState
 	PickingTypeState
+	AddingZoneState
+	ConfirmingDeleteZoneState
 	ConfirmingDeleteState
 	ConfirmingSaveState
 	ConfirmingQuitState
@@ -113,6 +115,7 @@ type Model struct {
 	ZoneList   list.Model
 	RecordList list.Model
 	Form       RecordForm
+	ZoneForm   ZoneForm
 	Spinner    spinner.Model
 	Logger     *log.Logger
 	LogFile    *os.File
@@ -142,9 +145,19 @@ type RecordForm struct {
 	FlattenCNAME bool
 }
 
+// ZoneForm manages input fields for adding/deleting a zone.
+type ZoneForm struct {
+	NameInput    textinput.Model
+	ConfirmInput textinput.Model // For deletion safety
+	JumpToTUI    bool            // If we should jump to TUI after adding (always true for us)
+}
+
 // Message types for async operations.
 type FetchedZonesMsg []cloudflare.Zone
 type FetchedRecordsMsg []cloudflare.DNSRecord
 type RecordSavedMsg struct{}
 type RecordDeletedMsg struct{}
+type ZoneCreatedMsg struct{}
+type ZoneDeletedMsg struct{}
+type ZoneCheckTriggeredMsg struct{}
 type ErrorMsg error

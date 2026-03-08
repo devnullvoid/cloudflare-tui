@@ -56,7 +56,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Err = nil
 			return m, nil
 		}
-
+		
 		// Handle Ctrl+C globally
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
@@ -87,13 +87,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		// Trigger quit confirmation on 'q' (handled specifically in states below for more precision)
-
 	case FetchedZonesMsg:
 		m.Logger.Info("Fetched zones", "count", len(msg))
 		items := make([]list.Item, len(msg))
-		for i := range msg {
-			items[i] = &ZoneItem{ID: msg[i].ID, Name: msg[i].Name}
+		for i, z := range msg {
+			items[i] = &ZoneItem{ID: z.ID, Name: z.Name, Status: z.Status}
 		}
 		m.ZoneList.SetItems(items)
 		m.State = ZoneListState
@@ -118,6 +116,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Logger.Info("Record deleted successfully", "id", m.PendingDeleteID)
 		m.State = LoadingRecordsState
 		return m, tea.Batch(FetchRecords(m.CfClient, m.SelectedID, m.Logger), m.Spinner.Tick)
+
+	case ZoneCreatedMsg, ZoneDeletedMsg, ZoneCheckTriggeredMsg:
+		m.State = LoadingZonesState
+		return m, tea.Batch(FetchZones(m.CfClient, m.Logger), m.Spinner.Tick)
 
 	case ErrorMsg:
 		m.Logger.Error("API Error", "error", msg.Error())
@@ -144,6 +146,23 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.ZoneList.FilterState() == list.Unfiltered {
 					m.State = ConfirmingQuitState
 					return m, nil
+				}
+			case "a":
+				m.ZoneForm = NewZoneForm(&m.Theme)
+				m.State = AddingZoneState
+				return m, nil
+			case "d":
+				if i, ok := m.ZoneList.SelectedItem().(*ZoneItem); ok {
+					m.PendingDeleteID = i.ID
+					m.PendingDeleteName = i.Name
+					m.ZoneForm = NewZoneForm(&m.Theme)
+					m.ZoneForm.ConfirmInput.Focus()
+					m.State = ConfirmingDeleteZoneState
+					return m, nil
+				}
+			case "r":
+				if i, ok := m.ZoneList.SelectedItem().(*ZoneItem); ok {
+					return m, CheckZone(m.CfClient, i.ID, m.Logger)
 				}
 			}
 		}
@@ -202,6 +221,42 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmd = m.updateList(msg)
 		cmds = append(cmds, cmd)
 
+	case AddingZoneState:
+		if msg, ok := msg.(tea.KeyMsg); ok {
+			switch msg.String() {
+			case "esc":
+				m.State = ZoneListState
+				return m, nil
+			case "enter":
+				name := m.ZoneForm.NameInput.Value()
+				if name == "" {
+					m.Err = fmt.Errorf("domain name is required")
+					return m, nil
+				}
+				return m, CreateZone(m.CfClient, name, m.Logger)
+			}
+		}
+		m.ZoneForm.NameInput, cmd = m.ZoneForm.NameInput.Update(msg)
+		return m, cmd
+
+	case ConfirmingDeleteZoneState:
+		if msg, ok := msg.(tea.KeyMsg); ok {
+			switch msg.String() {
+			case "esc":
+				m.State = ZoneListState
+				return m, nil
+			case "enter":
+				if m.ZoneForm.ConfirmInput.Value() == m.PendingDeleteName {
+					return m, DeleteZone(m.CfClient, m.PendingDeleteID, m.Logger)
+				} else {
+					m.Err = fmt.Errorf("confirmation name does not match")
+					return m, nil
+				}
+			}
+		}
+		m.ZoneForm.ConfirmInput, cmd = m.ZoneForm.ConfirmInput.Update(msg)
+		return m, cmd
+
 	case EditingRecordState:
 		if msg, ok := msg.(tea.KeyMsg); ok {
 			switch msg.String() {
@@ -222,20 +277,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else if m.Form.Focused < 0 {
 					m.Form.Focused = totalElements - 1
 				}
-
+				
 				if m.Form.Focused == len(m.Form.Inputs)+1 && !m.isProxiedSupported() {
-					if s == "up" || s == "shift+tab" {
-						m.Form.Focused--
-					} else {
-						m.Form.Focused++
-					}
+					if s == "up" || s == "shift+tab" { m.Form.Focused-- } else { m.Form.Focused++ }
 				}
 				if m.Form.Focused == len(m.Form.Inputs)+2 && !m.isFlattenSupported() {
-					if s == "up" || s == "shift+tab" {
-						m.Form.Focused--
-					} else {
-						m.Form.Focused++
-					}
+					if s == "up" || s == "shift+tab" { m.Form.Focused-- } else { m.Form.Focused++ }
 				}
 
 				for i := range m.Form.Inputs {
@@ -341,13 +388,31 @@ func (m *Model) View() string {
 	case LoadingZonesState:
 		return DocStyle.Render(fmt.Sprintf("%s Loading zones from Cloudflare...", m.Spinner.View()))
 	case ZoneListState:
-		return DocStyle.Render(m.ZoneList.View())
+		view := m.ZoneList.View()
+		help := lipgloss.NewStyle().Foreground(m.Theme.Inactive).MarginTop(1).Render("(a) add zone, (d) delete zone, (r) check activation, (enter) select, (q) quit")
+		return DocStyle.Render(view + "\n" + help)
 	case LoadingRecordsState:
 		return DocStyle.Render(fmt.Sprintf("%s Loading DNS records for %s...", m.Spinner.View(), m.SelectedID))
 	case RecordListState:
 		view := m.RecordList.View()
 		help := lipgloss.NewStyle().Foreground(m.Theme.Inactive).MarginTop(1).Render("(a) add record, (enter) edit record, (d) delete record, (esc) back, (q) quit")
 		return DocStyle.Render(view + "\n" + help)
+	
+	case AddingZoneState:
+		var b strings.Builder
+		fmt.Fprintf(&b, "%s\n\n", confirmStyle.Render("Add New Zone"))
+		fmt.Fprintf(&b, "%s\n\n", m.ZoneForm.NameInput.View())
+		fmt.Fprintf(&b, "(esc) cancel, (enter) create")
+		return DocStyle.Render(b.String())
+
+	case ConfirmingDeleteZoneState:
+		var b strings.Builder
+		fmt.Fprintf(&b, "%s\n\n", errStyle.Render("CRITICAL: Delete Zone"))
+		fmt.Fprintf(&b, "This action is irreversible. It will delete the zone %s and all its records.\n\n", confirmStyle.Render(m.PendingDeleteName))
+		fmt.Fprintf(&b, "To confirm, type the zone name exactly:\n\n")
+		fmt.Fprintf(&b, "%s\n\n", m.ZoneForm.ConfirmInput.View())
+		fmt.Fprintf(&b, "(esc) cancel, (enter) delete permanently")
+		return DocStyle.Render(b.String())
 
 	case PickingTypeState:
 		return DocStyle.Render(m.Form.TypeList.View())
@@ -376,9 +441,7 @@ func (m *Model) View() string {
 
 		if m.isProxiedSupported() {
 			proxiedStr := "[ ] Proxied"
-			if m.Form.Proxied {
-				proxiedStr = "[x] Proxied"
-			}
+			if m.Form.Proxied { proxiedStr = "[x] Proxied" }
 			if m.Form.Focused == len(m.Form.Inputs)+1 {
 				fmt.Fprintf(&b, "\n\n%s", focusedStyle.Render(proxiedStr))
 			} else {
@@ -388,9 +451,7 @@ func (m *Model) View() string {
 
 		if m.isFlattenSupported() {
 			flattenStr := "[ ] Flatten CNAME"
-			if m.Form.FlattenCNAME {
-				flattenStr = "[x] Flatten CNAME"
-			}
+			if m.Form.FlattenCNAME { flattenStr = "[x] Flatten CNAME" }
 			if m.Form.Focused == len(m.Form.Inputs)+2 {
 				fmt.Fprintf(&b, "\n\n%s", focusedStyle.Render(flattenStr))
 			} else {
@@ -411,11 +472,9 @@ func (m *Model) View() string {
 	case ConfirmingSaveState:
 		var b strings.Builder
 		fmt.Fprintf(&b, "%s\n\n", confirmStyle.Render("Review Changes"))
-
+		
 		typeOld := ""
-		if m.OldRecord != nil {
-			typeOld = m.OldRecord.Type
-		}
+		if m.OldRecord != nil { typeOld = m.OldRecord.Type }
 		if typeOld != "" && typeOld != m.Form.Type {
 			fmt.Fprintf(&b, "Type:    %s -> %s\n", diffOld.Render(typeOld), diffNew.Render(m.Form.Type))
 		} else {
@@ -428,13 +487,9 @@ func (m *Model) View() string {
 
 		if m.isProxiedSupported() {
 			oldProxied := "No"
-			if m.OldRecord != nil && m.OldRecord.Proxied != nil && *m.OldRecord.Proxied {
-				oldProxied = "Yes"
-			}
+			if m.OldRecord != nil && m.OldRecord.Proxied != nil && *m.OldRecord.Proxied { oldProxied = "Yes" }
 			newProxied := "No"
-			if m.Form.Proxied {
-				newProxied = "Yes"
-			}
+			if m.Form.Proxied { newProxied = "Yes" }
 			if m.OldRecord != nil {
 				fmt.Fprintf(&b, "Proxied: %s -> %s\n", diffOld.Render(oldProxied), diffNew.Render(newProxied))
 			} else {
@@ -444,13 +499,9 @@ func (m *Model) View() string {
 
 		if m.isFlattenSupported() {
 			oldFlat := "No"
-			if m.OldRecord != nil && m.OldRecord.Settings.FlattenCNAME != nil && *m.OldRecord.Settings.FlattenCNAME {
-				oldFlat = "Yes"
-			}
+			if m.OldRecord != nil && m.OldRecord.Settings.FlattenCNAME != nil && *m.OldRecord.Settings.FlattenCNAME { oldFlat = "Yes" }
 			newFlat := "No"
-			if m.Form.FlattenCNAME {
-				newFlat = "Yes"
-			}
+			if m.Form.FlattenCNAME { newFlat = "Yes" }
 			if m.OldRecord != nil {
 				fmt.Fprintf(&b, "Flatten: %s -> %s\n", diffOld.Render(oldFlat), diffNew.Render(newFlat))
 			} else {

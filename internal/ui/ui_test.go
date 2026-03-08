@@ -29,18 +29,18 @@ func TestUpdate(t *testing.T) {
 func TestRecordListTransition(t *testing.T) {
 	m := InitialModel(nil, &DefaultTheme, nil, nil)
 	m.State = ZoneListState
-
+	
 	// Mock selecting a zone
 	z := &ZoneItem{ID: "zone123", Name: "test.com"}
 	m.ZoneList.SetItems([]list.Item{z})
-
+	
 	records := []cloudflare.DNSRecord{
 		{ID: "rec1", Name: "www", Type: "A", Content: "1.1.1.1"},
 	}
-
+	
 	newModel, _ := m.Update(FetchedRecordsMsg(records))
 	updatedModel := newModel.(*Model)
-
+	
 	if updatedModel.State != RecordListState {
 		t.Errorf("Expected RecordListState, got %v", updatedModel.State)
 	}
@@ -81,5 +81,33 @@ func TestNewRecordForm(t *testing.T) {
 	}
 	if !form.Proxied {
 		t.Error("Expected proxied to be true")
+	}
+}
+
+func TestZoneOperations(t *testing.T) {
+	server, api := setupMockCloudflare(t)
+	defer server.Close()
+
+	m := InitialModel(api, &DefaultTheme, nil, nil)
+
+	// Test Zone Creation Message
+	newModel, _ := m.Update(ZoneCreatedMsg{})
+	updatedModel := newModel.(*Model)
+	if updatedModel.State != LoadingZonesState {
+		t.Errorf("Expected LoadingZonesState after creation, got %v", updatedModel.State)
+	}
+
+	// Test Zone Deletion Message
+	newModel, _ = m.Update(ZoneDeletedMsg{})
+	updatedModel = newModel.(*Model)
+	if updatedModel.State != LoadingZonesState {
+		t.Errorf("Expected LoadingZonesState after deletion, got %v", updatedModel.State)
+	}
+
+	// Test Zone Check Message
+	newModel, _ = m.Update(ZoneCheckTriggeredMsg{})
+	updatedModel = newModel.(*Model)
+	if updatedModel.State != LoadingZonesState {
+		t.Errorf("Expected LoadingZonesState after check, got %v", updatedModel.State)
 	}
 }
