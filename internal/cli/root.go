@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/charmbracelet/log"
 	"github.com/cloudflare/cloudflare-go"
@@ -85,7 +86,10 @@ You can also use the CLI commands to script and output data in structured format
 
 func setupLocalMockServer() *httptest.Server {
 	mux := http.NewServeMux()
+	
+	// Mock Zones
 	mux.HandleFunc("/zones", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.Method == http.MethodGet {
 			resp := map[string]interface{}{
 				"success": true,
@@ -103,10 +107,37 @@ func setupLocalMockServer() *httptest.Server {
 			_ = json.NewEncoder(w).Encode(resp)
 		}
 	})
+
+	// Mock Single Zone and DNS Records
 	mux.HandleFunc("/zones/", func(w http.ResponseWriter, r *http.Request) {
-		resp := map[string]interface{}{"success": true, "result": map[string]interface{}{"id": "123", "status": "active"}}
+		w.Header().Set("Content-Type", "application/json")
+		
+		// Handle dns_records request: /zones/:id/dns_records
+		if strings.HasSuffix(r.URL.Path, "/dns_records") {
+			resp := map[string]interface{}{
+				"success": true,
+				"result": []cloudflare.DNSRecord{
+					{ID: "r1", Name: "www", Type: "A", Content: "1.2.3.4", TTL: 1, Proxied: cloudflare.BoolPtr(true)},
+					{ID: "r2", Name: "api", Type: "CNAME", Content: "target.mock.com", TTL: 1, Proxied: cloudflare.BoolPtr(false)},
+				},
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+
+		// Handle generic zone details
+		resp := map[string]interface{}{
+			"success": true, 
+			"result": map[string]interface{}{
+				"id": "123", 
+				"name": "mock-zone.com",
+				"status": "active",
+				"name_servers": []string{"ns1.cloudflare.com", "ns2.cloudflare.com"},
+			},
+		}
 		_ = json.NewEncoder(w).Encode(resp)
 	})
+	
 	return httptest.NewServer(mux)
 }
 

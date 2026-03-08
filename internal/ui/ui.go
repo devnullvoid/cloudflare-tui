@@ -55,6 +55,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		if m.Err != nil {
 			m.Err = nil
+			// Recover state: if we were stuck in loading, go back to a safe list view
+			if m.State == LoadingZonesState {
+				m.State = ZoneListState
+			} else if m.State == LoadingRecordsState {
+				m.State = RecordListState
+			}
 			return m, nil
 		}
 		
@@ -166,19 +172,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.ZoneForm = NewZoneForm(&m.Theme)
 				m.State = AddingZoneState
 				return m, nil
-			case "d":
-				if i, ok := m.ZoneList.SelectedItem().(*ZoneItem); ok {
-					m.PendingDeleteID = i.ID
-					m.PendingDeleteName = i.Name
-					m.ZoneForm = NewZoneForm(&m.Theme)
-					m.ZoneForm.ConfirmInput.Focus()
-					m.State = ConfirmingDeleteZoneState
-					return m, nil
-				}
-			case "r":
-				if i, ok := m.ZoneList.SelectedItem().(*ZoneItem); ok {
-					return m, CheckZone(m.CfClient, i.ID, m.Logger)
-				}
 			case "i":
 				// View Info
 				if i, ok := m.ZoneList.SelectedItem().(*ZoneItem); ok {
@@ -203,11 +196,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case PendingZoneState:
 		if msg, ok := msg.(tea.KeyMsg); ok {
 			switch msg.String() {
-			case "esc", "q", "enter":
+			case "esc", "enter":
 				m.State = LoadingZonesState
 				return m, tea.Batch(FetchZones(m.CfClient, m.Logger), m.Spinner.Tick)
 			case "r":
 				return m, CheckZone(m.CfClient, m.PendingZone.ID, m.Logger)
+			case "d":
+				// Delete from Info page
+				m.PendingDeleteID = m.PendingZone.ID
+				m.PendingDeleteName = m.PendingZone.Name
+				m.ZoneForm = NewZoneForm(&m.Theme)
+				m.ZoneForm.ConfirmInput.Focus()
+				m.State = ConfirmingDeleteZoneState
+				return m, nil
 			}
 		}
 
@@ -276,7 +277,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg, ok := msg.(tea.KeyMsg); ok {
 			switch msg.String() {
 			case "esc":
-				m.State = ZoneListState
+				m.State = PendingZoneState
 				return m, nil
 			case "enter":
 				if m.ZoneForm.ConfirmInput.Value() == m.PendingDeleteName {
@@ -422,7 +423,7 @@ func (m *Model) View() string {
 		return DocStyle.Render(fmt.Sprintf("%s Loading zones from Cloudflare...", m.Spinner.View()))
 	case ZoneListState:
 		view := m.ZoneList.View()
-		help := lipgloss.NewStyle().Foreground(m.Theme.Inactive).MarginTop(1).Render("(a) add zone, (d) delete zone, (r) check activation, (i) zone info, (enter) select, (q) quit")
+		help := lipgloss.NewStyle().Foreground(m.Theme.Inactive).MarginTop(1).Render("(a) add zone, (i) zone info, (enter) select records, (q) quit")
 		return DocStyle.Render(view + "\n" + help)
 	case LoadingRecordsState:
 		return DocStyle.Render(fmt.Sprintf("%s Loading DNS records for %s...", m.Spinner.View(), m.SelectedID))
@@ -448,7 +449,7 @@ func (m *Model) View() string {
 			fmt.Fprintf(&b, "\nVerification Key: %s\n", diffNew.Render(m.PendingZone.VerificationKey))
 		}
 
-		fmt.Fprintf(&b, "\n%s", lipgloss.NewStyle().Foreground(m.Theme.Inactive).Render("(r) re-check activation, (enter/esc) back to list"))
+		fmt.Fprintf(&b, "\n%s", lipgloss.NewStyle().Foreground(m.Theme.Inactive).Render("(r) check activation, (d) delete zone, (enter/esc) back to list"))
 		return DocStyle.Render(b.String())
 
 	case AddingZoneState:
