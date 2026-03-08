@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/cloudflare/cloudflare-go"
 )
 
 const helpHeight = 2
@@ -91,7 +92,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Logger.Info("Fetched zones", "count", len(msg))
 		items := make([]list.Item, len(msg))
 		for i, z := range msg {
-			items[i] = &ZoneItem{ID: z.ID, Name: z.Name, Status: z.Status}
+			items[i] = &ZoneItem{ID: z.ID, Name: z.Name, Status: z.Status, Zone: z}
 		}
 		m.ZoneList.SetItems(items)
 		m.State = ZoneListState
@@ -117,7 +118,21 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.State = LoadingRecordsState
 		return m, tea.Batch(FetchRecords(m.CfClient, m.SelectedID, m.Logger), m.Spinner.Tick)
 
-	case ZoneCreatedMsg, ZoneDeletedMsg, ZoneCheckTriggeredMsg:
+	case ZoneCreatedMsg:
+		m.Logger.Info("Zone created successfully", "id", msg.ID)
+		z := cloudflare.Zone(msg)
+		m.PendingZone = &z
+		m.State = PendingZoneState
+		return m, nil
+
+	case ZoneCheckTriggeredMsg:
+		m.Logger.Info("Zone check triggered", "id", msg.ID)
+		z := cloudflare.Zone(msg)
+		m.PendingZone = &z
+		m.State = PendingZoneState
+		return m, nil
+
+	case ZoneDeletedMsg:
 		m.State = LoadingZonesState
 		return m, tea.Batch(FetchZones(m.CfClient, m.Logger), m.Spinner.Tick)
 
@@ -164,6 +179,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if i, ok := m.ZoneList.SelectedItem().(*ZoneItem); ok {
 					return m, CheckZone(m.CfClient, i.ID, m.Logger)
 				}
+			case "i":
+				// View Info
+				if i, ok := m.ZoneList.SelectedItem().(*ZoneItem); ok {
+					m.PendingZone = &i.Zone
+					m.State = PendingZoneState
+					return m, nil
+				}
 			}
 		}
 		cmd = m.updateList(msg)
@@ -175,6 +197,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.RecordList.Title = "DNS Records: " + i.Name
 				m.Logger.Info("Selecting zone", "name", i.Name, "id", i.ID)
 				return m, tea.Batch(FetchRecords(m.CfClient, i.ID, m.Logger), m.Spinner.Tick)
+			}
+		}
+
+	case PendingZoneState:
+		if msg, ok := msg.(tea.KeyMsg); ok {
+			switch msg.String() {
+			case "esc", "q", "enter":
+				m.State = LoadingZonesState
+				return m, tea.Batch(FetchZones(m.CfClient, m.Logger), m.Spinner.Tick)
+			case "r":
+				return m, CheckZone(m.CfClient, m.PendingZone.ID, m.Logger)
 			}
 		}
 
@@ -389,7 +422,7 @@ func (m *Model) View() string {
 		return DocStyle.Render(fmt.Sprintf("%s Loading zones from Cloudflare...", m.Spinner.View()))
 	case ZoneListState:
 		view := m.ZoneList.View()
-		help := lipgloss.NewStyle().Foreground(m.Theme.Inactive).MarginTop(1).Render("(a) add zone, (d) delete zone, (r) check activation, (enter) select, (q) quit")
+		help := lipgloss.NewStyle().Foreground(m.Theme.Inactive).MarginTop(1).Render("(a) add zone, (d) delete zone, (r) check activation, (i) zone info, (enter) select, (q) quit")
 		return DocStyle.Render(view + "\n" + help)
 	case LoadingRecordsState:
 		return DocStyle.Render(fmt.Sprintf("%s Loading DNS records for %s...", m.Spinner.View(), m.SelectedID))
@@ -398,10 +431,30 @@ func (m *Model) View() string {
 		help := lipgloss.NewStyle().Foreground(m.Theme.Inactive).MarginTop(1).Render("(a) add record, (enter) edit record, (d) delete record, (esc) back, (q) quit")
 		return DocStyle.Render(view + "\n" + help)
 	
+	case PendingZoneState:
+		var b strings.Builder
+		fmt.Fprintf(&b, "%s\n\n", confirmStyle.Render("Zone Information: "+m.PendingZone.Name))
+		fmt.Fprintf(&b, "Status: %s\n", m.PendingZone.Status)
+		fmt.Fprintf(&b, "ID:     %s\n", m.PendingZone.ID)
+		
+		if len(m.PendingZone.NameServers) > 0 {
+			fmt.Fprintf(&b, "\nAssign these Cloudflare Nameservers:\n")
+			for _, ns := range m.PendingZone.NameServers {
+				fmt.Fprintf(&b, " - %s\n", diffNew.Render(ns))
+			}
+		}
+		
+		if m.PendingZone.VerificationKey != "" {
+			fmt.Fprintf(&b, "\nVerification Key: %s\n", diffNew.Render(m.PendingZone.VerificationKey))
+		}
+
+		fmt.Fprintf(&b, "\n%s", lipgloss.NewStyle().Foreground(m.Theme.Inactive).Render("(r) re-check activation, (enter/esc) back to list"))
+		return DocStyle.Render(b.String())
+
 	case AddingZoneState:
 		var b strings.Builder
 		fmt.Fprintf(&b, "%s\n\n", confirmStyle.Render("Add New Zone"))
-		fmt.Fprintf(&b, "%s\n\n", m.ZoneForm.NameInput.View())
+		fmt.Fprintf(&b, "Domain Name: %s\n\n", m.ZoneForm.NameInput.View())
 		fmt.Fprintf(&b, "(esc) cancel, (enter) create")
 		return DocStyle.Render(b.String())
 

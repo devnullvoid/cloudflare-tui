@@ -89,12 +89,13 @@ func TestZoneOperations(t *testing.T) {
 	defer server.Close()
 
 	m := InitialModel(api, &DefaultTheme, nil, nil)
+	testZone := cloudflare.Zone{ID: "123", Name: "test.com"}
 
 	// Test Zone Creation Message
-	newModel, _ := m.Update(ZoneCreatedMsg{})
+	newModel, _ := m.Update(ZoneCreatedMsg(testZone))
 	updatedModel := newModel.(*Model)
-	if updatedModel.State != LoadingZonesState {
-		t.Errorf("Expected LoadingZonesState after creation, got %v", updatedModel.State)
+	if updatedModel.State != PendingZoneState {
+		t.Errorf("Expected PendingZoneState after creation, got %v", updatedModel.State)
 	}
 
 	// Test Zone Deletion Message
@@ -105,9 +106,9 @@ func TestZoneOperations(t *testing.T) {
 	}
 
 	// Test Zone Check Message
-	newModel, _ = m.Update(ZoneCheckTriggeredMsg{})
+	newModel, _ = m.Update(ZoneCheckTriggeredMsg(testZone))
 	updatedModel = newModel.(*Model)
-	if updatedModel.State != LoadingZonesState {
-		t.Errorf("Expected LoadingZonesState after check, got %v", updatedModel.State)
+	if updatedModel.State != PendingZoneState {
+		t.Errorf("Expected PendingZoneState after check, got %v", updatedModel.State)
 	}
 }

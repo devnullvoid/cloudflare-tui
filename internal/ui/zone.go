@@ -19,6 +19,7 @@ type ZoneItem struct {
 	ID     string
 	Name   string
 	Status string
+	Zone   cloudflare.Zone
 }
 
 func (i *ZoneItem) Title() string       { return i.Name }
@@ -43,12 +44,12 @@ func FetchZones(api *cloudflare.API, logger *log.Logger) tea.Cmd {
 func CreateZone(api *cloudflare.API, name string, logger *log.Logger) tea.Cmd {
 	return func() tea.Msg {
 		logger.Debug("Initiating CreateZone API call", "name", name)
-		_, err := api.CreateZone(context.Background(), name, false, cloudflare.Account{}, "full")
+		zone, err := api.CreateZone(context.Background(), name, false, cloudflare.Account{}, "full")
 		if err != nil {
 			logger.Error("CreateZone API call failed", "error", err)
 			return ErrorMsg(err)
 		}
-		return ZoneCreatedMsg{}
+		return ZoneCreatedMsg(zone)
 	}
 }
 
@@ -74,7 +75,12 @@ func CheckZone(api *cloudflare.API, zoneID string, logger *log.Logger) tea.Cmd {
 			logger.Error("ZoneActivationCheck API call failed", "error", err)
 			return ErrorMsg(err)
 		}
-		return ZoneCheckTriggeredMsg{}
+		// Fetch latest details after check
+		zone, err := api.ZoneDetails(context.Background(), zoneID)
+		if err != nil {
+			return ErrorMsg(err)
+		}
+		return ZoneCheckTriggeredMsg(zone)
 	}
 }
 

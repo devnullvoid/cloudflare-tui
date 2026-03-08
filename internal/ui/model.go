@@ -22,6 +22,7 @@ const (
 	EditingRecordState
 	PickingTypeState
 	AddingZoneState
+	PendingZoneState
 	ConfirmingDeleteZoneState
 	ConfirmingDeleteState
 	ConfirmingSaveState
@@ -129,6 +130,7 @@ type Model struct {
 
 	// Confirmation info
 	OldRecord         *cloudflare.DNSRecord
+	PendingZone       *cloudflare.Zone
 	PendingDeleteID   string
 	PendingDeleteName string
 }
@@ -157,7 +159,7 @@ type FetchedZonesMsg []cloudflare.Zone
 type FetchedRecordsMsg []cloudflare.DNSRecord
 type RecordSavedMsg struct{}
 type RecordDeletedMsg struct{}
-type ZoneCreatedMsg struct{}
+type ZoneCreatedMsg cloudflare.Zone
 type ZoneDeletedMsg struct{}
-type ZoneCheckTriggeredMsg struct{}
+type ZoneCheckTriggeredMsg cloudflare.Zone
 type ErrorMsg error
