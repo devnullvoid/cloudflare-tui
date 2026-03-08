@@ -56,7 +56,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Err = nil
 			return m, nil
 		}
-		
+
 		// Handle Ctrl+C globally
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
@@ -222,12 +222,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else if m.Form.Focused < 0 {
 					m.Form.Focused = totalElements - 1
 				}
-				
+
 				if m.Form.Focused == len(m.Form.Inputs)+1 && !m.isProxiedSupported() {
-					if s == "up" || s == "shift+tab" { m.Form.Focused-- } else { m.Form.Focused++ }
+					if s == "up" || s == "shift+tab" {
+						m.Form.Focused--
+					} else {
+						m.Form.Focused++
+					}
 				}
 				if m.Form.Focused == len(m.Form.Inputs)+2 && !m.isFlattenSupported() {
-					if s == "up" || s == "shift+tab" { m.Form.Focused-- } else { m.Form.Focused++ }
+					if s == "up" || s == "shift+tab" {
+						m.Form.Focused--
+					} else {
+						m.Form.Focused++
+					}
 				}
 
 				for i := range m.Form.Inputs {
@@ -340,7 +348,7 @@ func (m *Model) View() string {
 		view := m.RecordList.View()
 		help := lipgloss.NewStyle().Foreground(m.Theme.Inactive).MarginTop(1).Render("(a) add record, (enter) edit record, (d) delete record, (esc) back, (q) quit")
 		return DocStyle.Render(view + "\n" + help)
-	
+
 	case PickingTypeState:
 		return DocStyle.Render(m.Form.TypeList.View())
 
@@ -368,7 +376,9 @@ func (m *Model) View() string {
 
 		if m.isProxiedSupported() {
 			proxiedStr := "[ ] Proxied"
-			if m.Form.Proxied { proxiedStr = "[x] Proxied" }
+			if m.Form.Proxied {
+				proxiedStr = "[x] Proxied"
+			}
 			if m.Form.Focused == len(m.Form.Inputs)+1 {
 				fmt.Fprintf(&b, "\n\n%s", focusedStyle.Render(proxiedStr))
 			} else {
@@ -378,7 +388,9 @@ func (m *Model) View() string {
 
 		if m.isFlattenSupported() {
 			flattenStr := "[ ] Flatten CNAME"
-			if m.Form.FlattenCNAME { flattenStr = "[x] Flatten CNAME" }
+			if m.Form.FlattenCNAME {
+				flattenStr = "[x] Flatten CNAME"
+			}
 			if m.Form.Focused == len(m.Form.Inputs)+2 {
 				fmt.Fprintf(&b, "\n\n%s", focusedStyle.Render(flattenStr))
 			} else {
@@ -399,9 +411,11 @@ func (m *Model) View() string {
 	case ConfirmingSaveState:
 		var b strings.Builder
 		fmt.Fprintf(&b, "%s\n\n", confirmStyle.Render("Review Changes"))
-		
+
 		typeOld := ""
-		if m.OldRecord != nil { typeOld = m.OldRecord.Type }
+		if m.OldRecord != nil {
+			typeOld = m.OldRecord.Type
+		}
 		if typeOld != "" && typeOld != m.Form.Type {
 			fmt.Fprintf(&b, "Type:    %s -> %s\n", diffOld.Render(typeOld), diffNew.Render(m.Form.Type))
 		} else {
@@ -414,9 +428,13 @@ func (m *Model) View() string {
 
 		if m.isProxiedSupported() {
 			oldProxied := "No"
-			if m.OldRecord != nil && m.OldRecord.Proxied != nil && *m.OldRecord.Proxied { oldProxied = "Yes" }
+			if m.OldRecord != nil && m.OldRecord.Proxied != nil && *m.OldRecord.Proxied {
+				oldProxied = "Yes"
+			}
 			newProxied := "No"
-			if m.Form.Proxied { newProxied = "Yes" }
+			if m.Form.Proxied {
+				newProxied = "Yes"
+			}
 			if m.OldRecord != nil {
 				fmt.Fprintf(&b, "Proxied: %s -> %s\n", diffOld.Render(oldProxied), diffNew.Render(newProxied))
 			} else {
@@ -426,9 +444,13 @@ func (m *Model) View() string {
 
 		if m.isFlattenSupported() {
 			oldFlat := "No"
-			if m.OldRecord != nil && m.OldRecord.Settings.FlattenCNAME != nil && *m.OldRecord.Settings.FlattenCNAME { oldFlat = "Yes" }
+			if m.OldRecord != nil && m.OldRecord.Settings.FlattenCNAME != nil && *m.OldRecord.Settings.FlattenCNAME {
+				oldFlat = "Yes"
+			}
 			newFlat := "No"
-			if m.Form.FlattenCNAME { newFlat = "Yes" }
+			if m.Form.FlattenCNAME {
+				newFlat = "Yes"
+			}
 			if m.OldRecord != nil {
 				fmt.Fprintf(&b, "Flatten: %s -> %s\n", diffOld.Render(oldFlat), diffNew.Render(newFlat))
 			} else {

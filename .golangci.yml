@@ -1,24 +1,30 @@
-version: "2"
 run:
-  go: "1.21"
+  timeout: 5m
+  go: '1.21'
+
 linters:
   enable:
-    - gocritic
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
     - misspell
     - unconvert
     - unparam
-  settings:
-    errcheck:
-      check-blank: false
-    gocritic:
-      enabled-tags:
-        - diagnostic
-        - style
-        - performance
+    - gocritic
+
+linters-settings:
+  errcheck:
+    check-blank: false
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+
 issues:
+  exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
-formatters:
-  enable:
-    - gofmt
-    - goimports
