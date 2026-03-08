@@ -1,7 +1,10 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 
@@ -26,6 +29,7 @@ type Config struct {
 	Format   string
 	LogPath  string
 	Debug    bool
+	Mock     bool
 }
 
 var (
@@ -38,7 +42,6 @@ var (
 If no command is provided, it will launch the interactive TUI.
 You can also use the CLI commands to script and output data in structured formats.`,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			// Skip for completion and help commands
 			if cmd.Name() == "completion" || cmd.Name() == "help" {
 				return nil
 			}
@@ -49,16 +52,24 @@ You can also use the CLI commands to script and output data in structured format
 				Format:   viper.GetString("format"),
 				LogPath:  viper.GetString("log_path"),
 				Debug:    viper.GetBool("debug"),
+				Mock:     viper.GetBool("mock"),
 			}
 
 			var logFile *os.File
 			app.Logger, logFile = NewLogger(app.Config.LogPath, app.Config.Debug)
-			// Note: We don't close logFile here because we want it open for the duration of the command.
-			// For short-lived CLI commands, the OS will close it. For the TUI, m.Close() handles it.
-			// To be strictly correct, we could store it in app and use PostRun.
 			_ = logFile
 
-			api, err := getCloudflareClient(app.Logger)
+			var api *cloudflare.API
+			var err error
+
+			if app.Config.Mock {
+				app.Logger.Warn("MOCK MODE ENABLED: Using local mock server")
+				server := setupLocalMockServer()
+				api, err = cloudflare.New("deadbeef", "test@example.com", cloudflare.BaseURL(server.URL))
+			} else {
+				api, err = getCloudflareClient(app.Logger)
+			}
+
 			if err != nil {
 				return err
 			}
@@ -71,6 +82,33 @@ You can also use the CLI commands to script and output data in structured format
 		},
 	}
 )
+
+func setupLocalMockServer() *httptest.Server {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/zones", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			resp := map[string]interface{}{
+				"success": true,
+				"result": []cloudflare.Zone{
+					{ID: "123", Name: "mock-zone.com", Status: "active", NameServers: []string{"ns1.cloudflare.com", "ns2.cloudflare.com"}},
+					{ID: "456", Name: "pending-mock.io", Status: "pending", NameServers: []string{"alice.ns.cloudflare.com", "bob.ns.cloudflare.com"}},
+				},
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+		} else if r.Method == http.MethodPost {
+			resp := map[string]interface{}{
+				"success": true,
+				"result":  cloudflare.Zone{ID: "789", Name: "new-mock.com", Status: "pending", NameServers: []string{"carl.ns.cloudflare.com", "dave.ns.cloudflare.com"}},
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+		}
+	})
+	mux.HandleFunc("/zones/", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]interface{}{"success": true, "result": map[string]interface{}{"id": "123", "status": "active"}}
+		_ = json.NewEncoder(w).Encode(resp)
+	})
+	return httptest.NewServer(mux)
+}
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
@@ -98,11 +136,13 @@ func init() {
 	rootCmd.PersistentFlags().StringP("theme", "t", "ansi", "Color theme (ansi, mocha, nord, dracula, rose-pine, tokyo-night, gruvbox, everforest)")
 	rootCmd.PersistentFlags().String("log", defaultLogPath, "Path to log file")
 	rootCmd.PersistentFlags().Bool("debug", false, "Enable debug logging")
+	rootCmd.PersistentFlags().Bool("mock", false, "Use a local mock API for testing")
 
 	_ = viper.BindPFlag("format", rootCmd.PersistentFlags().Lookup("format"))
 	_ = viper.BindPFlag("theme", rootCmd.PersistentFlags().Lookup("theme"))
 	_ = viper.BindPFlag("log_path", rootCmd.PersistentFlags().Lookup("log"))
 	_ = viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
+	_ = viper.BindPFlag("mock", rootCmd.PersistentFlags().Lookup("mock"))
 }
 
 func initConfig() {
@@ -112,6 +152,7 @@ func initConfig() {
 	_ = viper.BindEnv("theme", "CFTUI_THEME")
 	_ = viper.BindEnv("log_path", "CFTUI_LOG")
 	_ = viper.BindEnv("debug", "CFTUI_DEBUG")
+	_ = viper.BindEnv("mock", "CFTUI_MOCK")
 }
 
 func getTheme() *ui.Theme {
