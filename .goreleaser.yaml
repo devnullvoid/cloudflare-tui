@@ -113,31 +113,31 @@ nfpms:
         dst: "/usr/share/doc/cftui/README.md"
         type: "doc"
 
-# Homebrew Formula
-brews:
-  - name: cftui
-    description: "A terminal user interface (TUI) for managing Cloudflare DNS records"
-    homepage: "https://github.com/devnullvoid/cloudflare-tui"
-    license: "MIT"
-    repository:
-      owner: devnullvoid
-      name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    commit_author:
-      name: goreleaserbot
-      email: goreleaser@cftui.com
-    directory: Formula
+# Homebrew Formula (Disabled until repo/secrets are ready)
+# brews:
+#   - name: cftui
+#     description: "A terminal user interface (TUI) for managing Cloudflare DNS records"
+#     homepage: "https://github.com/devnullvoid/cloudflare-tui"
+#     license: "MIT"
+#     repository:
+#       owner: devnullvoid
+#       name: homebrew-tap
+#       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+#     commit_author:
+#       name: goreleaserbot
+#       email: goreleaser@cftui.com
+#     directory: Formula
 
-# Scoop Manifest
-scoops:
-  - name: cftui
-    description: "A terminal user interface (TUI) for managing Cloudflare DNS records"
-    homepage: "https://github.com/devnullvoid/cloudflare-tui"
-    license: "MIT"
-    repository:
-      owner: devnullvoid
-      name: scoop-bucket
-      token: "{{ .Env.SCOOP_GITHUB_TOKEN }}"
-    commit_author:
-      name: goreleaserbot
-      email: goreleaser@cftui.com
+# Scoop Manifest (Disabled until repo/secrets are ready)
+# scoops:
+#   - name: cftui
+#     description: "A terminal user interface (TUI) for managing Cloudflare DNS records"
+#     homepage: "https://github.com/devnullvoid/cloudflare-tui"
+#     license: "MIT"
+#     repository:
+#       owner: devnullvoid
+#       name: scoop-bucket
+#       token: "{{ .Env.SCOOP_GITHUB_TOKEN }}"
+#     commit_author:
+#       name: goreleaserbot
+#       email: goreleaser@cftui.com
