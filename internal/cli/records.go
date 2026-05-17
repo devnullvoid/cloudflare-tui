@@ -146,14 +146,14 @@ var recordsDeleteCmd = &cobra.Command{
 }
 
 func init() {
-	recordsCreateCmd.Flags().StringVarP(&recordType, "type", "t", "A", "DNS record type (A, CNAME, etc.)")
+	recordsCreateCmd.Flags().StringVarP(&recordType, "type", "T", "A", "DNS record type (A, CNAME, etc.)")
 	recordsCreateCmd.Flags().StringVarP(&recordName, "name", "n", "", "DNS record name")
 	recordsCreateCmd.Flags().StringVarP(&recordContent, "content", "c", "", "DNS record content")
 	recordsCreateCmd.Flags().BoolVarP(&recordProxied, "proxied", "p", false, "Whether the record is proxied through Cloudflare")
 	_ = recordsCreateCmd.MarkFlagRequired("name")
 	_ = recordsCreateCmd.MarkFlagRequired("content")
 
-	recordsUpdateCmd.Flags().StringVarP(&recordType, "type", "t", "A", "DNS record type (A, CNAME, etc.)")
+	recordsUpdateCmd.Flags().StringVarP(&recordType, "type", "T", "A", "DNS record type (A, CNAME, etc.)")
 	recordsUpdateCmd.Flags().StringVarP(&recordName, "name", "n", "", "DNS record name")
 	recordsUpdateCmd.Flags().StringVarP(&recordContent, "content", "c", "", "DNS record content")
 	recordsUpdateCmd.Flags().BoolVarP(&recordProxied, "proxied", "p", false, "Whether the record is proxied through Cloudflare")
