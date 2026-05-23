@@ -195,8 +195,8 @@ func CompleteRecordIDs(_ *cobra.Command, args []string, _ string) ([]string, cob
 	}
 
 	ids := make([]string, len(records))
-	for i, r := range records {
-		ids[i] = r.ID + "\t" + r.Type + " " + r.Name
+	for i := range records {
+		ids[i] = records[i].ID + "\t" + records[i].Type + " " + records[i].Name
 	}
 
 	return ids, cobra.ShellCompDirectiveNoFileComp
