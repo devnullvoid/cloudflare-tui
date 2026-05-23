@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-05-23
+
+### Added
+- **Full CLI Record Type Support**: `records create` and `records update` now support all record types available in the TUI — MX, SRV, CAA, CNAME (with flattening), A, AAAA, TXT, and more.
+- **Type-Specific CLI Flags**: New flags for structured record types — `--priority` (MX/SRV), `--service`, `--proto`, `--weight`, `--port`, `--target` (SRV), `--tag`, `--caa-flags`, `--value` (CAA), `--flatten-cname` (CNAME).
+- **TTL and Comment Flags**: `--ttl` and `--comment` are now supported on `records create` and `records update`.
+- **Tab Completion for Record IDs**: `records update` and `records delete` now complete record IDs from the API when a zone is already provided.
+- **Tab Completion for `--type`**: All valid DNS record type values are offered as completions with descriptions.
+- **Zone Completion with Status**: Zone name completions now include zone status as a description.
+- **Agent Skill**: Added `skills/cftui-cli/SKILL.md` — install via `npx skills add devnullvoid/cloudflare-tui` to give AI agents full knowledge of the CLI interface.
+
+### Changed
+- CLI flag `--type` on record commands no longer has a `-t` shorthand (conflicts with the global `--theme` flag).
+- `--content` is no longer statically required; validation is now type-aware (SRV and CAA use structured data fields instead of content).
+
 ## [0.3.0] - 2026-03-07
 
 ### Added
@@ -52,6 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Input validation and confirmation prompts
 - Keyboard-centric navigation
 
+[0.4.0]: https://github.com/devnullvoid/cloudflare-tui/releases/tag/v0.4.0
 [0.3.0]: https://github.com/devnullvoid/cloudflare-tui/releases/tag/v0.3.0
 [0.2.0]: https://github.com/devnullvoid/cloudflare-tui/releases/tag/v0.2.0
 [0.1.0]: https://github.com/devnullvoid/cloudflare-tui/releases/tag/v0.1.0
