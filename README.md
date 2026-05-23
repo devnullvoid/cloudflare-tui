@@ -63,14 +63,47 @@ By default, running `cftui` without arguments launches the interactive interface
 
 ### Headless CLI Mode
 
-**Commands**
+**Zone Commands**
+- `cftui zones list`
 - `cftui zones create <name>`
 - `cftui zones delete <zone-name-or-id>`
 - `cftui zones check <zone-name-or-id>`
+
+**Record Commands**
 - `cftui records list <zone-name-or-id>`
+- `cftui records create <zone-name-or-id> --name <name> --type <type> [flags]`
+- `cftui records update <zone-name-or-id> <record-id> --name <name> --type <type> [flags]`
+- `cftui records delete <zone-name-or-id> <record-id>`
+
+**Universal Record Flags**
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--type` | | `A` | Record type (`A`, `AAAA`, `CNAME`, `TXT`, `MX`, `SRV`, `CAA`, …) |
+| `--name` | `-n` | *(required)* | Record name (e.g. `www`, `@`) |
+| `--content` | `-c` | | IP, hostname, or text value (not used for SRV/CAA) |
+| `--proxied` | `-p` | `false` | Proxy through Cloudflare |
+| `--ttl` | | `1` | TTL in seconds (`1` = auto) |
+| `--comment` | | | Optional description |
+
+**Type-Specific Flags**
+
+| Flag | Applies to | Description |
+|------|-----------|-------------|
+| `--priority` | MX, SRV | Priority value |
+| `--flatten-cname` | CNAME | Flatten CNAME at zone apex |
+| `--service` | SRV | Service name (e.g. `_sip`) |
+| `--proto` | SRV | Protocol (e.g. `_tcp`) |
+| `--weight` | SRV | Weight |
+| `--port` | SRV | Port |
+| `--target` | SRV | Target hostname |
+| `--tag` | CAA | Tag (`issue`, `issuewild`, `iodef`) |
+| `--caa-flags` | CAA | Flags (`0` or `128`) |
+| `--value` | CAA | CA value (e.g. `letsencrypt.org`) |
 
 **Global Flags**
-- `--mock`: Use a local mock API for testing the UI without hitting Cloudflare.
+- `--format, -f`: Output format: `table` (default), `json`, `yaml`.
+- `--mock`: Use a local mock API for testing without hitting Cloudflare.
 - `--theme`: Color theme. Options: `ansi`, `mocha`, `nord`, `dracula`, etc.
 
 ## Shell Completion

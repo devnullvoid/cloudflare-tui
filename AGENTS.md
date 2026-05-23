@@ -21,7 +21,13 @@ You are an expert Go developer and TUI designer assisting with `cftui`.
 - **Searchable Selectors**: Use the `PickingTypeState` pattern (a searchable `list.Model` overlay) for fields with many valid options instead of raw text input.
 - **Feature Flags**: Use helper methods like `isProxiedSupported()` or `isFlattenSupported()` to hide/show UI elements based on the current record type.
 
-### 4. Engineering Standards
+### 4. CLI Flag Design
+- **Shared flag registration**: Use `registerRecordFlags(cmd)` to DRY up flag registration across `records create` and `records update` — do not duplicate flag definitions.
+- **Type-specific validation**: All record-type routing and validation lives in `validateAndBuildFields()` in `internal/cli/records.go`. Add new record types there, not in the command `RunE`.
+- **Flag conflicts**: Record-level flags use long-form only (no short flags) except `-n/--name`, `-c/--content`, `-p/--proxied`. The `-t` short flag is reserved globally for `--theme`.
+- **Tab completion**: Register `ValidArgsFunction` on all positional args and `RegisterFlagCompletionFunc` for enum-style flags like `--type`. Use `CompleteZoneThenRecordID` for commands that take `<zone> <record-id>`. Completion helpers live in `internal/cli/utils.go` and share `completionAPI()` for lazy API initialization.
+
+### 5. Engineering Standards
 - **Logging**: Use `charmbracelet/log`. Follow the XDG State Home spec (`~/.local/state/cftui/`) for default log paths. Implement detailed debug logging for all API traffic using the custom `loggingRoundTripper`.
 - **Styles**: Use the centralized `Theme` struct in `internal/ui/model.go`. Ensure all new components support the built-in color schemes.
 - **CLI**: Use `spf13/cobra` for routing and `spf13/viper` for configuration/env-vars. Use `lipgloss/table` for user-friendly CLI output.
@@ -31,10 +37,13 @@ You are an expert Go developer and TUI designer assisting with `cftui`.
 - **Error Handling**: Explicitly handle or ignore all error returns (e.g., `_ = logFile.Close()`).
 - **Confirmations**: Always require user confirmation for destructive or modifying operations.
 - **Name Confirmation**: For critical operations like **Zone Deletion**, require the user to type the domain name exactly to proceed.
-- **Validation**: Validate required fields (Name, Content) before initiating API calls.
+- **Validation**: Use `validateAndBuildFields()` for CLI record validation. Do not use `MarkFlagRequired` for `--content` — content requirements differ by record type and must be enforced at runtime.
 
 ## Development Workflow
 1. **Research**: Review `internal/ui/model.go` for state definitions and `internal/cli/root.go` for shared state.
 2. **Mock Testing**: Always test UI changes using the `--mock` flag to avoid hitting production Cloudflare accounts during development.
 3. **Execute**: Maintain pointer consistency. If you change a method to a pointer receiver, ensure type assertions in `Update()` are updated to pointer types.
 4. **Validate**: Always run `just check` and `just build` to ensure no lint regressions, test failures, or build failures occur.
+
+## Skills
+- The agent skill for the CLI is at `skills/cftui-cli/SKILL.md`. Update it whenever CLI commands, flags, or behaviour change.

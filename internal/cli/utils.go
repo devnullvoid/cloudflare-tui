@@ -125,21 +125,12 @@ func resolveZoneID(api *cloudflare.API, identifier string) (string, error) {
 
 // CompleteZoneNames returns a list of zone names for shell completion.
 func CompleteZoneNames(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	var api *cloudflare.API
-	var err error
-
-	// If app is already initialized (unlikely during completion, but possible)
-	if app.API != nil {
-		api = app.API
-	} else {
-		// Manual initialization for completion (no logging)
-		api, err = getCloudflareClient(nil)
-		if err != nil {
-			return nil, cobra.ShellCompDirectiveNoFileComp
-		}
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	if len(args) > 0 {
+	api, err := completionAPI()
+	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
@@ -148,12 +139,87 @@ func CompleteZoneNames(cmd *cobra.Command, args []string, toComplete string) ([]
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	var names []string
+	names := make([]string, len(zones))
 	for i := range zones {
-		names = append(names, zones[i].Name)
+		names[i] = zones[i].Name + "\t" + zones[i].Status
 	}
 
 	return names, cobra.ShellCompDirectiveNoFileComp
+}
+
+// CompleteRecordTypes returns valid DNS record type values for --type flag completion.
+func CompleteRecordTypes(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+	return []string{
+		"A\tIPv4 address",
+		"AAAA\tIPv6 address",
+		"CAA\tCertification Authority Authorization",
+		"CERT\tCertificate",
+		"CNAME\tCanonical name",
+		"DNSKEY\tDNS Key",
+		"DS\tDelegation Signer",
+		"MX\tMail exchange",
+		"NAPTR\tName Authority Pointer",
+		"NS\tName server",
+		"PTR\tPointer",
+		"SMIMEA\tS/MIME Certificate Association",
+		"SPF\tSender Policy Framework",
+		"SRV\tService locator",
+		"SSHFP\tSSH Fingerprint",
+		"SVCB\tService Binding",
+		"TLSA\tTLS Authentication",
+		"TXT\tText",
+		"URI\tUniform Resource Identifier",
+	}, cobra.ShellCompDirectiveNoFileComp
+}
+
+// CompleteRecordIDs returns DNS record IDs for a zone already provided as args[0].
+func CompleteRecordIDs(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
+	if len(args) != 1 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	api, err := completionAPI()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	zoneID, err := resolveZoneID(api, args[0])
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	rc := cloudflare.ZoneIdentifier(zoneID)
+	records, _, err := api.ListDNSRecords(context.Background(), rc, cloudflare.ListDNSRecordsParams{})
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	ids := make([]string, len(records))
+	for i, r := range records {
+		ids[i] = r.ID + "\t" + r.Type + " " + r.Name
+	}
+
+	return ids, cobra.ShellCompDirectiveNoFileComp
+}
+
+// CompleteZoneThenRecordID completes zone name for arg[0] and record ID for args[1].
+func CompleteZoneThenRecordID(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	switch len(args) {
+	case 0:
+		return CompleteZoneNames(cmd, args, toComplete)
+	case 1:
+		return CompleteRecordIDs(cmd, args, toComplete)
+	}
+	return nil, cobra.ShellCompDirectiveNoFileComp
+}
+
+// completionAPI returns the API client for use in completion functions,
+// preferring the already-initialized app client when available.
+func completionAPI() (*cloudflare.API, error) {
+	if app.API != nil {
+		return app.API, nil
+	}
+	return getCloudflareClient(nil)
 }
 
 // printOutput formats and prints structured data based on the requested format.

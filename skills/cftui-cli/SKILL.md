@@ -1,6 +1,6 @@
 ---
 name: cftui-cli
-description: Use when querying or managing Cloudflare DNS records and zones via the cftui CLI — listing zones, creating/deleting zones, listing/creating/updating/deleting DNS records. Requires a Cloudflare API token. Use for automation, scripting, or any headless Cloudflare DNS management without the TUI.
+description: Use when querying or managing Cloudflare DNS records and zones via the cftui CLI — listing zones, creating/deleting zones, listing/creating/updating/deleting DNS records (A, AAAA, CNAME, TXT, MX, SRV, CAA, and more). Requires a Cloudflare API token. Use for automation, scripting, or any headless Cloudflare DNS management without the TUI.
 license: MIT
 metadata:
   author: github.com/devnullvoid/cloudflare-tui
@@ -29,7 +29,7 @@ npx skills add devnullvoid/cloudflare-tui
 - Listing all zones accessible by a Cloudflare API token
 - Creating or deleting Cloudflare zones
 - Triggering activation checks for pending zones
-- Listing, creating, updating, or deleting DNS records for a zone
+- Listing, creating, updating, or deleting DNS records for a zone (all types)
 - Scripting or automating DNS changes without the interactive TUI
 
 **Not for:** Cloudflare account settings, firewall rules, Workers, Pages, or anything outside DNS/zone management — use the Cloudflare dashboard or `wrangler` CLI for those.
@@ -60,8 +60,8 @@ export CLOUDFLARE_API_TOKEN=your_token_here
 | `cftui zones delete <zone>` | Delete a zone |
 | `cftui zones check <zone>` | Trigger activation check for a pending zone |
 | `cftui records list <zone>` | List DNS records for a zone |
-| `cftui records create <zone> -t TYPE -n NAME -c CONTENT` | Create a DNS record |
-| `cftui records update <zone> <record-id> -t TYPE -n NAME -c CONTENT` | Update a DNS record |
+| `cftui records create <zone> -n NAME -t TYPE [flags]` | Create a DNS record |
+| `cftui records update <zone> <record-id> -n NAME -t TYPE [flags]` | Update a DNS record |
 | `cftui records delete <zone> <record-id>` | Delete a DNS record |
 
 `<zone>` accepts either a zone name (e.g. `example.com`) or a zone ID.
@@ -100,11 +100,8 @@ cftui zones list --format json
 # Create a new zone
 cftui zones create example.com
 
-# Delete a zone by name
+# Delete a zone by name or ID
 cftui zones delete example.com
-
-# Delete a zone by ID
-cftui zones delete abc123def456
 
 # Trigger an activation check for a pending zone
 cftui zones check example.com
@@ -127,37 +124,103 @@ cftui zones check example.com
 
 ## DNS Records
 
+### Universal Flags (all record types)
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--type` | | `A` | Record type (`A`, `AAAA`, `CNAME`, `TXT`, `MX`, `SRV`, `CAA`, …) |
+| `--name` | `-n` | *(required)* | Record name (e.g. `www`, `@`, `_sip._tcp`) |
+| `--content` | `-c` | | IP, hostname, or text value (not used for SRV/CAA) |
+| `--proxied` | `-p` | `false` | Proxy traffic through Cloudflare |
+| `--ttl` | | `1` | TTL in seconds (`1` = auto) |
+| `--comment` | | | Optional description for the record |
+
+### Type-Specific Flags
+
+| Flag | Applies to | Description |
+|------|-----------|-------------|
+| `--flatten-cname` | CNAME | Flatten CNAME at zone apex |
+| `--priority` | MX, SRV | Priority value |
+| `--service` | SRV | Service name (e.g. `_sip`) |
+| `--proto` | SRV | Protocol (e.g. `_tcp`, `_udp`) |
+| `--weight` | SRV | Weight |
+| `--port` | SRV | Port number |
+| `--target` | SRV | Target hostname |
+| `--tag` | CAA | Tag: `issue`, `issuewild`, or `iodef` |
+| `--caa-flags` | CAA | Flags: `0` (non-critical) or `128` (critical) |
+| `--value` | CAA | CA value (e.g. `letsencrypt.org`) |
+
+### A / AAAA Records
+
 ```bash
-# List records for a zone (table)
+cftui records create example.com --type A --name www --content 1.2.3.4 --proxied
+cftui records create example.com --type A --name www --content 1.2.3.4 --ttl 300
+cftui records create example.com --type AAAA --name www --content 2001:db8::1
+```
+
+### CNAME Records
+
+```bash
+cftui records create example.com --type CNAME --name api --content target.example.com
+cftui records create example.com --type CNAME --name @ --content example.github.io --flatten-cname
+```
+
+### TXT Records
+
+```bash
+cftui records create example.com --type TXT --name "_dmarc" --content "v=DMARC1; p=none"
+cftui records create example.com --type TXT --name "@" --content "v=spf1 include:_spf.google.com ~all"
+```
+
+### MX Records
+
+MX records use `--content` for the mail server hostname and `--priority` for the priority value.
+
+```bash
+cftui records create example.com --type MX --name "@" --content mail.example.com --priority 10
+cftui records create example.com --type MX --name "@" --content alt1.aspmx.l.google.com --priority 20
+```
+
+### SRV Records
+
+SRV records do not use `--content`. Use the SRV-specific flags instead.
+
+```bash
+cftui records create example.com \
+  --type SRV \
+  --name "_sip._tcp" \
+  --service _sip \
+  --proto _tcp \
+  --priority 10 \
+  --weight 20 \
+  --port 5060 \
+  --target sip.example.com
+```
+
+### CAA Records
+
+CAA records do not use `--content`. Use `--tag`, `--value`, and optionally `--caa-flags`.
+
+```bash
+# Allow Let's Encrypt to issue certificates
+cftui records create example.com --type CAA --name "@" --tag issue --value "letsencrypt.org"
+
+# Wildcard issuance policy
+cftui records create example.com --type CAA --name "@" --tag issuewild --value ";"
+
+# Incident report URL
+cftui records create example.com --type CAA --name "@" --tag iodef --value "mailto:security@example.com"
+```
+
+### Listing Records
+
+```bash
+# List records (table)
 cftui records list example.com
 
 # List records (JSON)
 cftui records list example.com --format json
-
-# Create an A record (proxied)
-cftui records create example.com --type A --name www --content 1.2.3.4 --proxied
-
-# Create a CNAME record (not proxied)
-cftui records create example.com --type CNAME --name api --content target.example.com
-
-# Create a TXT record
-cftui records create example.com --type TXT --name "_dmarc" --content "v=DMARC1; p=none"
-
-# Update a record by ID
-cftui records update example.com r1abc123 --type A --name www --content 5.6.7.8 --proxied
-
-# Delete a record by ID
-cftui records delete example.com r1abc123
 ```
-
-**Record flags for create and update:**
-
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--type` | `-t` | `A` | DNS record type: `A`, `AAAA`, `CNAME`, `TXT`, `MX`, `SRV`, `CAA`, etc. |
-| `--name` | `-n` | *(required)* | Record name (e.g. `www`, `api`, `@`) |
-| `--content` | `-c` | *(required)* | Record content (IP address, hostname, or text value) |
-| `--proxied` | `-p` | `false` | Proxy traffic through Cloudflare |
 
 **JSON shape — records list:**
 ```json
@@ -172,9 +235,9 @@ cftui records delete example.com r1abc123
   },
   {
     "id": "r2def456",
-    "type": "CNAME",
-    "name": "api.example.com",
-    "content": "target.example.com",
+    "type": "MX",
+    "name": "example.com",
+    "content": "mail.example.com",
     "proxied": false,
     "ttl": 3600
   }
@@ -183,7 +246,30 @@ cftui records delete example.com r1abc123
 
 `ttl` of `1` means "Auto" (Cloudflare-managed TTL). `proxied: true` means traffic flows through Cloudflare's network.
 
-## Shell Completion
+### Updating Records
+
+The same type-specific flags apply to `records update`. The second positional argument is the record ID.
+
+```bash
+# Update an A record's content
+cftui records update example.com r1abc123 --type A --name www --content 5.6.7.8 --proxied
+
+# Update an MX record's priority
+cftui records update example.com r2def456 --type MX --name "@" --content mail.example.com --priority 5
+
+# Add a comment to a record
+cftui records update example.com r1abc123 --type A --name www --content 1.2.3.4 --comment "Primary web server"
+```
+
+### Deleting Records
+
+```bash
+cftui records delete example.com r1abc123
+```
+
+## Tab Completion
+
+Tab completion is available for zone names, record IDs, and `--type` flag values:
 
 ```bash
 # Bash
@@ -199,7 +285,10 @@ cftui completion fish | source
 cftui completion powershell | Out-String | Invoke-Expression
 ```
 
-Zone name completion is supported for all `records` subcommands.
+With completion active:
+- `cftui records list <TAB>` — lists your zone names with status
+- `cftui records delete example.com <TAB>` — lists record IDs for that zone
+- `cftui records create example.com --type <TAB>` — lists all supported record types with descriptions
 
 ## Mock Mode
 
@@ -234,6 +323,11 @@ cftui records list example.com --format json | jq -r '.[] | select(.type == "CNA
 # Create a record and capture its ID
 record_id=$(cftui records create example.com --type A --name staging --content 10.0.0.1 --format json | jq -r '.id')
 
+# Upsert pattern: delete existing record then recreate
+old_id=$(cftui records list example.com --format json | jq -r '.[] | select(.name == "www.example.com" and .type == "A") | .id')
+cftui records delete example.com "$old_id"
+cftui records create example.com --type A --name www --content 5.6.7.8 --proxied
+
 # Check if any zones are in a pending state
 cftui zones list --format json | jq '[.[] | select(.status == "pending")] | length'
 
@@ -241,6 +335,9 @@ cftui zones list --format json | jq '[.[] | select(.status == "pending")] | leng
 cftui zones list --format json | jq -r '.[] | select(.status == "pending") | .name' | while read zone; do
   cftui zones check "$zone"
 done
+
+# List all MX records across a zone
+cftui records list example.com --format json | jq '[.[] | select(.type == "MX")]'
 ```
 
 ## Troubleshooting
@@ -248,8 +345,10 @@ done
 | Problem | Likely Cause | Fix |
 |---------|-------------|-----|
 | `CLOUDFLARE_API_TOKEN environment variable is required` | Token not set | `export CLOUDFLARE_API_TOKEN=your_token` |
-| `failed to list zones: ...` | Invalid token or missing Zone Read permission | Verify token has **Zone: Read** permission |
+| `failed to list zones` | Invalid token or missing Zone Read permission | Verify token has **Zone: Read** |
 | `could not find zone with name or ID: ...` | Zone doesn't exist or token can't access it | Check zone name/ID; verify token scope |
-| `failed to create record: ...` | Missing DNS Edit permission or invalid record values | Verify token has **DNS: Edit**; check `--type`, `--name`, `--content` |
-| `failed to create zone: ...` | Missing Zone Edit permission | Add **Zone: Edit** permission to the token |
-| Table output is garbled | Terminal doesn't support ANSI | Use `--format json` or `--format yaml` instead |
+| `failed to create record` | Missing DNS Edit permission or invalid values | Verify token has **DNS: Edit**; check flags |
+| `--content is required for MX records` | Forgot `--content` for MX | Pass `--content mail.example.com` |
+| `--service and --target are required for SRV records` | Missing SRV-specific flags | Add `--service` and `--target` |
+| `--tag and --value are required for CAA records` | Missing CAA-specific flags | Add `--tag` and `--value` |
+| Table output is garbled | Terminal doesn't support ANSI | Use `--format json` or `--format yaml` |
