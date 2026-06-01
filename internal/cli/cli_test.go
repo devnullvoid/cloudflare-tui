@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/devnullvoid/cloudflare-tui/internal/ui"
 	"github.com/spf13/viper"
 )
@@ -29,6 +30,23 @@ func TestGetTheme(t *testing.T) {
 	theme = getTheme()
 	if theme.Primary != ui.AvailableThemes["ansi"].Primary {
 		t.Error("Expected fallback to ansi for invalid theme")
+	}
+
+	// Test theme color overrides
+	viper.Reset()
+	viper.Set("theme", "ansi")
+	viper.Set("color_primary", "4")         // Blue
+	viper.Set("color_secondary", "#ff8700") // Orange hex
+	theme = getTheme()
+	if theme.Primary != lipgloss.Color("4") {
+		t.Errorf("Expected primary color to be overridden to 4, got %v", theme.Primary)
+	}
+	if theme.Secondary != lipgloss.Color("#ff8700") {
+		t.Errorf("Expected secondary color to be overridden to #ff8700, got %v", theme.Secondary)
+	}
+	// Verify other colors remain unchanged from defaults
+	if theme.Error != ui.AvailableThemes["ansi"].Error {
+		t.Errorf("Expected error color to remain default %v, got %v", ui.AvailableThemes["ansi"].Error, theme.Error)
 	}
 }
 

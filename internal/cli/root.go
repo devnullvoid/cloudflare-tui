@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
 	"github.com/cloudflare/cloudflare-go"
 	"github.com/devnullvoid/cloudflare-tui/internal/ui"
@@ -25,12 +26,17 @@ type CLI struct {
 
 // Config stores application configuration.
 type Config struct {
-	APIToken string
-	Theme    string
-	Format   string
-	LogPath  string
-	Debug    bool
-	Mock     bool
+	APIToken       string
+	Theme          string
+	Format         string
+	LogPath        string
+	Debug          bool
+	Mock           bool
+	ColorPrimary   string
+	ColorSecondary string
+	ColorError     string
+	ColorWarning   string
+	ColorInactive  string
 }
 
 var (
@@ -48,12 +54,17 @@ You can also use the CLI commands to script and output data in structured format
 			}
 
 			app.Config = &Config{
-				APIToken: viper.GetString("api_token"),
-				Theme:    viper.GetString("theme"),
-				Format:   viper.GetString("format"),
-				LogPath:  viper.GetString("log_path"),
-				Debug:    viper.GetBool("debug"),
-				Mock:     viper.GetBool("mock"),
+				APIToken:       viper.GetString("api_token"),
+				Theme:          viper.GetString("theme"),
+				Format:         viper.GetString("format"),
+				LogPath:        viper.GetString("log_path"),
+				Debug:          viper.GetBool("debug"),
+				Mock:           viper.GetBool("mock"),
+				ColorPrimary:   viper.GetString("color_primary"),
+				ColorSecondary: viper.GetString("color_secondary"),
+				ColorError:     viper.GetString("color_error"),
+				ColorWarning:   viper.GetString("color_warning"),
+				ColorInactive:  viper.GetString("color_inactive"),
 			}
 
 			var logFile *os.File
@@ -169,12 +180,22 @@ func init() {
 	rootCmd.PersistentFlags().String("log", defaultLogPath, "Path to log file")
 	rootCmd.PersistentFlags().Bool("debug", false, "Enable debug logging")
 	rootCmd.PersistentFlags().Bool("mock", false, "Use a local mock API for testing")
+	rootCmd.PersistentFlags().String("color-primary", "", "Override primary color (hex or ANSI color number)")
+	rootCmd.PersistentFlags().String("color-secondary", "", "Override secondary color (hex or ANSI color number)")
+	rootCmd.PersistentFlags().String("color-error", "", "Override error color (hex or ANSI color number)")
+	rootCmd.PersistentFlags().String("color-warning", "", "Override warning color (hex or ANSI color number)")
+	rootCmd.PersistentFlags().String("color-inactive", "", "Override inactive color (hex or ANSI color number)")
 
 	_ = viper.BindPFlag("format", rootCmd.PersistentFlags().Lookup("format"))
 	_ = viper.BindPFlag("theme", rootCmd.PersistentFlags().Lookup("theme"))
 	_ = viper.BindPFlag("log_path", rootCmd.PersistentFlags().Lookup("log"))
 	_ = viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
 	_ = viper.BindPFlag("mock", rootCmd.PersistentFlags().Lookup("mock"))
+	_ = viper.BindPFlag("color_primary", rootCmd.PersistentFlags().Lookup("color-primary"))
+	_ = viper.BindPFlag("color_secondary", rootCmd.PersistentFlags().Lookup("color-secondary"))
+	_ = viper.BindPFlag("color_error", rootCmd.PersistentFlags().Lookup("color-error"))
+	_ = viper.BindPFlag("color_warning", rootCmd.PersistentFlags().Lookup("color-warning"))
+	_ = viper.BindPFlag("color_inactive", rootCmd.PersistentFlags().Lookup("color-inactive"))
 }
 
 func initConfig() {
@@ -185,12 +206,37 @@ func initConfig() {
 	_ = viper.BindEnv("log_path", "CFTUI_LOG")
 	_ = viper.BindEnv("debug", "CFTUI_DEBUG")
 	_ = viper.BindEnv("mock", "CFTUI_MOCK")
+	_ = viper.BindEnv("color_primary", "CFTUI_COLOR_PRIMARY")
+	_ = viper.BindEnv("color_secondary", "CFTUI_COLOR_SECONDARY")
+	_ = viper.BindEnv("color_error", "CFTUI_COLOR_ERROR")
+	_ = viper.BindEnv("color_warning", "CFTUI_COLOR_WARNING")
+	_ = viper.BindEnv("color_inactive", "CFTUI_COLOR_INACTIVE")
 }
 
 func getTheme() *ui.Theme {
 	name := viper.GetString("theme")
-	if theme, ok := ui.AvailableThemes[name]; ok {
-		return &theme
+	var theme ui.Theme
+	if t, ok := ui.AvailableThemes[name]; ok {
+		theme = t
+	} else {
+		theme = ui.DefaultTheme
 	}
-	return &ui.DefaultTheme
+
+	if primary := viper.GetString("color_primary"); primary != "" {
+		theme.Primary = lipgloss.Color(primary)
+	}
+	if secondary := viper.GetString("color_secondary"); secondary != "" {
+		theme.Secondary = lipgloss.Color(secondary)
+	}
+	if errColor := viper.GetString("color_error"); errColor != "" {
+		theme.Error = lipgloss.Color(errColor)
+	}
+	if warning := viper.GetString("color_warning"); warning != "" {
+		theme.Warning = lipgloss.Color(warning)
+	}
+	if inactive := viper.GetString("color_inactive"); inactive != "" {
+		theme.Inactive = lipgloss.Color(inactive)
+	}
+
+	return &theme
 }

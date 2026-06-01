@@ -77,6 +77,11 @@ These flags work with every subcommand:
 | `--log` | | `~/.local/state/cftui/cftui.log` | Path to log file |
 | `--debug` | | `false` | Enable debug logging (logs raw HTTP requests/responses) |
 | `--mock` | | `false` | Use a local mock API instead of hitting Cloudflare |
+| `--color-primary` | | | Override primary theme color (hex or ANSI color number) |
+| `--color-secondary` | | | Override secondary theme color (hex or ANSI color number) |
+| `--color-error` | | | Override error theme color (hex or ANSI color number) |
+| `--color-warning` | | | Override warning theme color (hex or ANSI color number) |
+| `--color-inactive` | | | Override inactive theme color (hex or ANSI color number) |
 
 **Prefer `--format json` when parsing output in scripts or agents.** Table output is for human review.
 

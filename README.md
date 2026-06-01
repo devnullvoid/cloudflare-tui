@@ -105,6 +105,8 @@ By default, running `cftui` without arguments launches the interactive interface
 - `--format, -f`: Output format: `table` (default), `json`, `yaml`.
 - `--mock`: Use a local mock API for testing without hitting Cloudflare.
 - `--theme`: Color theme. Options: `ansi`, `mocha`, `nord`, `dracula`, etc.
+- `--color-primary`, `--color-secondary`, `--color-error`, `--color-warning`, `--color-inactive`: Custom color overrides (accepts standard hex `#RRGGBB` or 8/16 ANSI color numbers `0-15`). Can also be configured via environment variables (e.g. `CFTUI_COLOR_PRIMARY`).
+
 
 ## Shell Completion
 

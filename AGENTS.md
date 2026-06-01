@@ -29,7 +29,7 @@ You are an expert Go developer and TUI designer assisting with `cftui`.
 
 ### 5. Engineering Standards
 - **Logging**: Use `charmbracelet/log`. Follow the XDG State Home spec (`~/.local/state/cftui/`) for default log paths. Implement detailed debug logging for all API traffic using the custom `loggingRoundTripper`.
-- **Styles**: Use the centralized `Theme` struct in `internal/ui/model.go`. Ensure all new components support the built-in color schemes.
+- **Styles**: Use the centralized `Theme` struct in `internal/ui/model.go`. Ensure all new components support the built-in color schemes and respect the custom color overrides populated via `getTheme()` in `internal/cli/root.go`.
 - **CLI**: Use `spf13/cobra` for routing and `spf13/viper` for configuration/env-vars. Use `lipgloss/table` for user-friendly CLI output.
 
 ## Code Quality & Safety
